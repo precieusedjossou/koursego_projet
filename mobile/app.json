@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "KourseGO",
+    "slug": "koursego",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo_orange.png",
+    "scheme": "koursego",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/images/logo_orange.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF8C00"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.koursego.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/logo_orange.png",
+        "backgroundColor": "#FF8C00"
+      },
+      "package": "com.koursego.app",
+      "permissions": [
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "KourseGO utilise votre localisation pour suivre les livraisons."
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "KourseGO utilise la caméra pour la vérification d'identité."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

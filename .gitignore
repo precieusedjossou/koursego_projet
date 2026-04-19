@@ -1,0 +1,31 @@
+# Dépendances
+node_modules/
+.pnp
+.pnp.js
+
+# Environnement (NE JAMAIS COMMITER)
+.env
+.env.local
+.env.production
+
+# Expo / React Native
+mobile/.expo/
+mobile/dist/
+mobile/web-build/
+mobile/expo-env.d.ts
+
+# Admin web build
+admin/dist/
+
+# Éditeur
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

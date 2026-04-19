@@ -1,0 +1,28 @@
+/* src/index.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #FF8C00;
+  --primary-dark: #E67E00;
+  --primary-light: #FFA733;
+  --primary-soft: #FFF3E0;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #F8F9FA;
+  color: #1A1A1A;
+}
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f1f1; }
+::-webkit-scrollbar-thumb { background: #FF8C00; border-radius: 3px; }
+
+.badge-pending  { background: #FEF9C3; color: #B45309; }
+.badge-active   { background: #DCFCE7; color: #16A34A; }
+.badge-done     { background: #FFF3E0; color: #FF8C00; }
+.badge-rejected { background: #FEE2E2; color: #DC2626; }

@@ -1,0 +1,11 @@
+{
+  "name": "koursego-project",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "mobile": "cd mobile && npx expo start",
+    "admin": "cd admin && npm run dev",
+    "install:mobile": "cd mobile && npm install --legacy-peer-deps",
+    "install:admin": "cd admin && npm install"
+  }
+}

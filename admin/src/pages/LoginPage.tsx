@@ -1,6 +1,7 @@
 // src/pages/LoginPage.tsx
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase'; // adapte le chemin si besoin
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -12,14 +13,48 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (!email || !password) { setError('Remplissez tous les champs'); return; }
+
+    if (!email || !password) {
+      setError('Remplissez tous les champs');
+      return;
+    }
+
     setLoading(true);
-    // TODO: Supabase auth + vérifier role admin dans table ADMIN
-    setTimeout(() => {
-      setLoading(false);
-      localStorage.setItem('admin_token', 'demo_token');
+    try {
+      // 1. Connexion Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError || !authData.user) {
+        setError('Email ou mot de passe incorrect');
+        return;
+      }
+
+      // 2. Vérifier que c'est bien un admin
+      const { data: adminData, error: adminError } = await supabase
+        .from('admins')
+        .select('id_admin, id_utilisateur, niveau_acces')
+        .eq('id_utilisateur', authData.user.id)
+        .single();
+
+      if (adminError || !adminData) {
+        await supabase.auth.signOut();
+        setError("Accès refusé. Ce compte n'est pas administrateur.");
+        return;
+      }
+
+      // 3. Session gérée automatiquement par Supabase
+      localStorage.setItem('admin_niveau', adminData.niveau_acces ?? 'admin');
+
       navigate('/dashboard');
-    }, 1200);
+
+    } catch (err) {
+      setError('Erreur réseau. Réessayez.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

@@ -7,13 +7,14 @@
     "icon": "./assets/images/logo_orange.png",
     "scheme": "koursego",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/logo_orange.png",
       "resizeMode": "contain",
       "backgroundColor": "#FF8C00"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.koursego.app"
@@ -44,7 +45,8 @@
         {
           "cameraPermission": "KourseGO utilise la caméra pour la vérification d'identité."
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

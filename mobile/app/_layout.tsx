@@ -1,4 +1,4 @@
-// app/_layout.tsx — Expo SDK 54 + Reanimated v3
+// app/_layout.tsx — Expo SDK 54 + Reanimated v3 + Clerk
 import { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
 import * as Font from 'expo-font';
@@ -6,8 +6,28 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { View } from 'react-native';
+import { ClerkProvider, ClerkLoaded } from '@clerk/clerk-expo';
+import * as SecureStore from 'expo-secure-store';
 
 SplashScreen.preventAutoHideAsync();
+
+// Cache sécurisé pour Clerk (remplace AsyncStorage)
+const tokenCache = {
+  async getToken(key: string) {
+    try {
+      return await SecureStore.getItemAsync(key);
+    } catch {
+      return null;
+    }
+  },
+  async saveToken(key: string, value: string) {
+    try {
+      await SecureStore.setItemAsync(key, value);
+    } catch {}
+  },
+};
+
+const CLERK_KEY = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
 export default function RootLayout() {
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -23,7 +43,6 @@ export default function RootLayout() {
           'Poppins-Bold':     require('../assets/fonts/Poppins-Bold.ttf'),
         });
       } catch (e) {
-        // Polices absentes → polices système (pas d'erreur bloquante)
         console.warn('Poppins absentes, polices système utilisées.');
       } finally {
         setFontsLoaded(true);
@@ -38,14 +57,18 @@ export default function RootLayout() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="auth" />
-        <Stack.Screen name="client" />
-        <Stack.Screen name="coursier" />
-      </Stack>
-    </GestureHandlerRootView>
+    <ClerkProvider publishableKey={CLERK_KEY} tokenCache={tokenCache}>
+      <ClerkLoaded>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" />
+            <Stack.Screen name="auth" />
+            <Stack.Screen name="client" />
+            <Stack.Screen name="coursier" />
+          </Stack>
+        </GestureHandlerRootView>
+      </ClerkLoaded>
+    </ClerkProvider>
   );
 }

@@ -18,7 +18,11 @@ export default function KYCSuccessScreen() {
           <Ionicons name="checkmark-circle" size={64} color={Colors.primary} />
         </View>
 
-       
+        <Image
+          source={require('../../assets/images/logo_orange.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
 
         <Text style={styles.title}>Documents soumis avec succès !</Text>
         <Text style={styles.desc}>

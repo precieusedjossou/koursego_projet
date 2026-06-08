@@ -1,49 +1,124 @@
 // app/auth/role-choice.tsx
-import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../../constants/Colors';
 import { FontFamily, FontSize, Spacing, BorderRadius } from '../../constants/Typography';
+import { supabase } from '../../lib/supabase';
 
 export default function RoleChoiceScreen() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  // ── L'utilisateur veut devenir coursier ──────────────────────
+  const handleDevenirCoursier = async () => {
+    setLoading(true);
+    try {
+      // Récupérer l'utilisateur connecté
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        Alert.alert('Erreur', 'Session expirée. Veuillez vous reconnecter.');
+        router.replace('/auth/login');
+        return;
+      }
+      
+      // Mettre à jour le mode_actuel → 'coursier' dans la table utilisateurs
+      const { error } = await supabase
+        .from('utilisateurs')
+        .update({ mode_actuel: 'coursier' })
+        .eq('id', user.id);
+
+      if (error) {
+        Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
+        return;
+      }
+
+      // Rediriger vers le formulaire KYC du coursier
+      router.push('/auth/kyc-coursier');
+
+    } catch (err) {
+      Alert.alert('Erreur réseau', 'Vérifiez votre connexion.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ── L'utilisateur veut rester client ────────────────────────
+  const handleResterClient = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) {
+        Alert.alert('Erreur', 'Session expirée. Veuillez vous reconnecter.');
+        router.replace('/auth/login');
+        return;
+      }
+
+      // S'assurer que mode_actuel est bien 'client' en base
+      await supabase
+        .from('utilisateurs')
+        .update({ mode_actuel: 'client' })
+        .eq('id', user.id);
+
+      // Rediriger vers l'accueil client
+      router.replace('/client/home');
+
+    } catch (err) {
+      Alert.alert('Erreur réseau', 'Vérifiez votre connexion.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Hero image */}
+      {/* Hero image — identique à l'original */}
       <View style={styles.hero}>
-        {/* Illustration placeholder - coursier sur moto */}
         <View style={styles.heroImage}>
           <Ionicons name="bicycle" size={80} color={Colors.white} />
         </View>
       </View>
 
       <View style={styles.content}>
-        {/* Logo + titre */}
-        
+        {/* Logo + titre — identique à l'original */}
+        <View style={styles.logoRow}>
+          <Image
+            source={require('../../assets/images/logo_orange.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+        </View>
 
         <Text style={styles.title}>
           Bienvenue sur{'\n'}
           <Text style={styles.titleBrand}>KourseGO</Text>
         </Text>
-        <Text style={styles.subtitle}>Voulez-vous devenir coursier sur notre plateforme ?</Text>
+        <Text style={styles.subtitle}>
+          Voulez-vous devenir coursier sur notre plateforme ?
+        </Text>
 
         {/* Bouton : devenir coursier */}
         <TouchableOpacity
-          style={styles.btnCoursier}
+          style={[styles.btnCoursier, loading && styles.btnDisabled]}
           activeOpacity={0.85}
-          onPress={() => router.push('/auth/kyc-coursier')}
+          onPress={handleDevenirCoursier}
+          disabled={loading}
         >
           <Ionicons name="bicycle-outline" size={20} color={Colors.white} />
-          <Text style={styles.btnCoursierText}>Oui, devenir coursier</Text>
+          <Text style={styles.btnCoursierText}>
+            {loading ? 'Chargement...' : 'Oui, devenir coursier'}
+          </Text>
         </TouchableOpacity>
 
         {/* Bouton : rester client */}
         <TouchableOpacity
-          style={styles.btnClient}
+          style={[styles.btnClient, loading && styles.btnClientDisabled]}
           activeOpacity={0.85}
-          onPress={() => router.replace('/client/home')}
+          onPress={handleResterClient}
+          disabled={loading}
         >
           <Ionicons name="bag-handle-outline" size={20} color={Colors.primary} />
           <Text style={styles.btnClientText}>Non, je veux commander</Text>
@@ -53,6 +128,7 @@ export default function RoleChoiceScreen() {
   );
 }
 
+// ── Styles identiques à l'original de ta collègue ───────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.white },
   hero: {
@@ -81,8 +157,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.base,
   },
   logo: {
-    width: 0,
-    height:0 ,
+    width: 140,
+    height: 40,
   },
   title: {
     fontFamily: FontFamily.bold,
@@ -135,5 +211,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.semiBold,
     fontSize: FontSize.md,
     color: Colors.primary,
+  },
+  btnDisabled: {
+    opacity: 0.6,
+  },
+  btnClientDisabled: {
+    opacity: 0.6,
   },
 });

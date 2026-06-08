@@ -31,7 +31,7 @@ export default function LoginScreen() {
     }
     setError('');
     setLoading(true);
-    // TODO: Appel Supabase auth.signInWithPassword
+    // TODO: Supabase auth.signInWithPassword
     setTimeout(() => {
       setLoading(false);
       router.replace('/client/home');
@@ -41,28 +41,28 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
     >
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        bounces={false}
       >
-        {/* Logo & titre */}
+        {/* ── Logo KourseGO directement (sans fond carré) ───────────────── */}
         <View style={styles.logoSection}>
-          <View style={styles.iconWrapper}>
-            <Image
-              source={require('../../assets/images/logo_icon_orange.png')}
-              style={styles.icon}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={require('../../assets/images/logo_icon_orange.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.title}>Bon retour</Text>
           <Text style={styles.subtitle}>Connectez-vous pour gérer vos courses</Text>
         </View>
 
-        {/* Formulaire */}
+        {/* ── Formulaire ───────────────────────────────────────────────── */}
         <View style={styles.form}>
           <Input
             label="E-mail ou Numéro de téléphone"
@@ -72,6 +72,7 @@ export default function LoginScreen() {
             leftIcon="person-outline"
             keyboardType="email-address"
             autoCapitalize="none"
+            returnKeyType="next"
           />
 
           <Input
@@ -81,6 +82,8 @@ export default function LoginScreen() {
             onChangeText={setPassword}
             leftIcon="lock-closed-outline"
             isPassword
+            returnKeyType="done"
+            onSubmitEditing={handleLogin}
           />
 
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
@@ -97,29 +100,32 @@ export default function LoginScreen() {
           />
         </View>
 
-        {/* Séparateur */}
+        {/* ── Séparateur ───────────────────────────────────────────────── */}
         <View style={styles.separator}>
           <View style={styles.line} />
           <Text style={styles.separatorText}>OU CONTINUER AVEC</Text>
           <View style={styles.line} />
         </View>
 
-        {/* Connexion sociale */}
+        {/* ── Connexion sociale ────────────────────────────────────────── */}
         <View style={styles.socialRow}>
           <TouchableOpacity style={styles.socialBtn} activeOpacity={0.7}>
             <Ionicons name="logo-google" size={20} color="#DB4437" />
             <Text style={styles.socialText}>Google</Text>
           </TouchableOpacity>
-          J
+          
         </View>
 
-        {/* Inscription */}
+        {/* ── Inscription ──────────────────────────────────────────────── */}
         <View style={styles.registerRow}>
           <Text style={styles.registerText}>Vous n'avez pas de compte ? </Text>
           <TouchableOpacity onPress={() => router.push('/auth/register')}>
             <Text style={styles.registerLink}>S'inscrire</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Espace bas pour que le clavier ne coupe pas le bouton */}
+        <View style={{ height: 40 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -130,26 +136,19 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
     padding: Spacing['2xl'],
-    paddingTop: 60,
+    paddingTop: 48,
     flexGrow: 1,
   },
+
+  // ── Logo sans fond carré ─────────────────────────────────────────────
   logoSection: {
     alignItems: 'center',
     marginBottom: Spacing['2xl'],
   },
-  iconWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 20,
-    backgroundColor: Colors.primarySoft,
-    alignItems: 'center',
-    justifyContent: 'center',
+  logo: {
+    width: 200,
+    height: 200,
     marginBottom: Spacing.base,
-    ...Shadows.sm,
-  },
-  icon: {
-    width: 50,
-    height: 50,
   },
   title: {
     fontFamily: FontFamily.bold,
@@ -163,6 +162,8 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
+
+  // ── Formulaire ───────────────────────────────────────────────────────
   form: { marginBottom: Spacing.lg },
   errorText: {
     fontFamily: FontFamily.regular,
@@ -182,6 +183,8 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   loginBtn: { marginTop: Spacing.sm },
+
+  // ── Séparateur ───────────────────────────────────────────────────────
   separator: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -195,6 +198,8 @@ const styles = StyleSheet.create({
     color: Colors.textLight,
     letterSpacing: 0.5,
   },
+
+  // ── Social ───────────────────────────────────────────────────────────
   socialRow: {
     flexDirection: 'row',
     gap: Spacing.md,
@@ -218,6 +223,8 @@ const styles = StyleSheet.create({
     fontSize: FontSize.base,
     color: Colors.textPrimary,
   },
+
+  // ── Inscription ──────────────────────────────────────────────────────
   registerRow: {
     flexDirection: 'row',
     justifyContent: 'center',

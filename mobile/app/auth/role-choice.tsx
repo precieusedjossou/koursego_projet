@@ -21,13 +21,7 @@ export default function RoleChoiceScreen() {
 
       <View style={styles.content}>
         {/* Logo + titre */}
-        <View style={styles.logoRow}>
-          <Image
-            source={require('../../assets/images/logo_orange.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
+        
 
         <Text style={styles.title}>
           Bienvenue sur{'\n'}
@@ -87,8 +81,8 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.base,
   },
   logo: {
-    width: 140,
-    height: 40,
+    width: 0,
+    height:0 ,
   },
   title: {
     fontFamily: FontFamily.bold,

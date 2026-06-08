@@ -101,7 +101,7 @@ export default function RecapitulatifScreen() {
         {/* Actions */}
         <View style={styles.btnsRow}>
           <Button title="Modifier" onPress={() => router.back()} variant="outline" style={styles.btn} />
-          <Button title="Confirmer la demande →" onPress={() => router.push('/client/commande/confirmation')} style={styles.btn} />
+          <Button title="Confirmer la demande →" onPress={() => router.push('/client/commande/recherche_coursier')} style={styles.btn} />
         </View>
         <View style={{ height: 32 }} />
       </ScrollView>

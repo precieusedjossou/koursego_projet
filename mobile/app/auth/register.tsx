@@ -19,10 +19,15 @@ const EMAILJS_PUBLIC_KEY  = 'aQ5Zh4kgS0TfpCNPy';
 
 export default function RegisterScreen() {
   const router = useRouter();
+
   const [form, setForm] = useState({
-    nom_complet: '', email: '', telephone: '',
-    password: '', confirm_password: '',
-  });
+  nom_complet: '',
+  email: '',
+  telephone: '',
+  npi: '',
+  password: '',
+  confirm_password: '',
+});
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
@@ -30,7 +35,7 @@ export default function RegisterScreen() {
     setForm((f) => ({ ...f, [key]: value }));
 
   const handleRegister = async () => {
-    if (!form.nom_complet || !form.email || !form.telephone || !form.password) {
+   if (!form.nom_complet || !form.email || !form.telephone || !form.npi || !form.password) {
       setError('Veuillez remplir tous les champs'); return;
     }
     if (form.password !== form.confirm_password) {
@@ -123,6 +128,7 @@ export default function RegisterScreen() {
           <Input label="Nom complet" placeholder="John Doe" value={form.nom_complet} onChangeText={(v) => update('nom_complet', v)} leftIcon="person-outline" autoCapitalize="words" />
           <Input label="E-mail" placeholder="nom@exemple.com" value={form.email} onChangeText={(v) => update('email', v)} leftIcon="mail-outline" keyboardType="email-address" autoCapitalize="none" />
           <Input label="Numéro de téléphone" placeholder="+229 XX XX XX XX" value={form.telephone} onChangeText={(v) => update('telephone', v)} leftIcon="call-outline" keyboardType="phone-pad" />
+          <Input label="NPI" placeholder="123456789" value={form.npi} onChangeText={(v) => update('npi', v)} leftIcon="id-card-outline" keyboardType="numeric" />
           <Input label="Mot de passe" placeholder="••••••••" value={form.password} onChangeText={(v) => update('password', v)} leftIcon="lock-closed-outline" isPassword />
           <Input label="Confirmer le mot de passe" placeholder="••••••••" value={form.confirm_password} onChangeText={(v) => update('confirm_password', v)} leftIcon="lock-closed-outline" isPassword />
           {error ? <Text style={styles.errorText}>{error}</Text> : null}

@@ -39,9 +39,9 @@ export default function PaiementScreen() {
         {/* Récap montant */}
         <View style={styles.amountCard}>
           <Text style={styles.amountLabel}>Montant total</Text>
-          <Text style={styles.amount}>17 500 FCFA</Text>
+          <Text style={styles.amount}>16 500 FCFA</Text>
           <View style={styles.amountDetails}>
-            <Text style={styles.amountSub}>Articles : 15 000 · Coursier : 1 500 · Plateforme : 1 000</Text>
+            <Text style={styles.amountSub}>Articles : 15 000 · Coursier : 1 500 </Text>
           </View>
         </View>
 

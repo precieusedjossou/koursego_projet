@@ -33,5 +33,5 @@
     ".expo/types/**/*.d.ts",
     "expo-env.d.ts",
     ".expo/types/**/*.ts"
-  ]
+, "cache/tokenCache.ts"  ]
 }

@@ -1,6 +1,6 @@
 // app/auth/role-choice.tsx
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../../constants/Colors';
@@ -11,33 +11,24 @@ export default function RoleChoiceScreen() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  // ── L'utilisateur veut devenir coursier ──────────────────────
   const handleDevenirCoursier = async () => {
     setLoading(true);
     try {
-      // Récupérer l'utilisateur connecté
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user) {
         Alert.alert('Erreur', 'Session expirée. Veuillez vous reconnecter.');
         router.replace('/auth/login');
         return;
       }
-      
-      // Mettre à jour le mode_actuel → 'coursier' dans la table utilisateurs
       const { error } = await supabase
         .from('utilisateurs')
         .update({ mode_actuel: 'coursier' })
         .eq('id', user.id);
-
       if (error) {
         Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
         return;
       }
-
-      // Rediriger vers le formulaire KYC du coursier
       router.push('/auth/kyc-coursier');
-
     } catch (err) {
       Alert.alert('Erreur réseau', 'Vérifiez votre connexion.');
     } finally {
@@ -45,27 +36,20 @@ export default function RoleChoiceScreen() {
     }
   };
 
-  // ── L'utilisateur veut rester client ────────────────────────
   const handleResterClient = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-
       if (!user) {
         Alert.alert('Erreur', 'Session expirée. Veuillez vous reconnecter.');
         router.replace('/auth/login');
         return;
       }
-
-      // S'assurer que mode_actuel est bien 'client' en base
       await supabase
         .from('utilisateurs')
         .update({ mode_actuel: 'client' })
         .eq('id', user.id);
-
-      // Rediriger vers l'accueil client
       router.replace('/client/home');
-
     } catch (err) {
       Alert.alert('Erreur réseau', 'Vérifiez votre connexion.');
     } finally {
@@ -75,22 +59,7 @@ export default function RoleChoiceScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Hero image — identique à l'original */}
-      <View style={styles.hero}>
-        <View style={styles.heroImage}>
-          <Ionicons name="bicycle" size={80} color={Colors.white} />
-        </View>
-      </View>
-
       <View style={styles.content}>
-        {/* Logo + titre — identique à l'original */}
-        <View style={styles.logoRow}>
-          <Image
-            source={require('../../assets/images/logo_orange.png')}
-            style={styles.logo}
-            resizeMode="contain"
-          />
-        </View>
 
         <Text style={styles.title}>
           Bienvenue sur{'\n'}
@@ -100,7 +69,6 @@ export default function RoleChoiceScreen() {
           Voulez-vous devenir coursier sur notre plateforme ?
         </Text>
 
-        {/* Bouton : devenir coursier */}
         <TouchableOpacity
           style={[styles.btnCoursier, loading && styles.btnDisabled]}
           activeOpacity={0.85}
@@ -113,7 +81,6 @@ export default function RoleChoiceScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Bouton : rester client */}
         <TouchableOpacity
           style={[styles.btnClient, loading && styles.btnClientDisabled]}
           activeOpacity={0.85}
@@ -123,42 +90,19 @@ export default function RoleChoiceScreen() {
           <Ionicons name="bag-handle-outline" size={20} color={Colors.primary} />
           <Text style={styles.btnClientText}>Non, je veux commander</Text>
         </TouchableOpacity>
+
       </View>
     </View>
   );
 }
 
-// ── Styles identiques à l'original de ta collègue ───────────
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.white },
-  hero: {
-    height: '40%',
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-  },
-  heroImage: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   content: {
     flex: 1,
     padding: Spacing['2xl'],
     alignItems: 'center',
-    paddingTop: Spacing['2xl'],
-  },
-  logoRow: {
-    marginBottom: Spacing.base,
-  },
-  logo: {
-    width: 140,
-    height: 40,
+    justifyContent: 'center',
   },
   title: {
     fontFamily: FontFamily.bold,
@@ -167,9 +111,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: Spacing.sm,
   },
-  titleBrand: {
-    color: Colors.primary,
-  },
+  titleBrand: { color: Colors.primary },
   subtitle: {
     fontFamily: FontFamily.regular,
     fontSize: FontSize.base,
@@ -212,10 +154,6 @@ const styles = StyleSheet.create({
     fontSize: FontSize.md,
     color: Colors.primary,
   },
-  btnDisabled: {
-    opacity: 0.6,
-  },
-  btnClientDisabled: {
-    opacity: 0.6,
-  },
+  btnDisabled: { opacity: 0.6 },
+  btnClientDisabled: { opacity: 0.6 },
 });

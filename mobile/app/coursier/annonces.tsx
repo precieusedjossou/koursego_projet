@@ -20,6 +20,7 @@ const ANNONCES = [
     montant: '1 500 FCFA',
     total: '17 000 FCFA',
     datePublie: 'Il y a 3 min',
+    poids: null,
   },
   {
     id: '2',
@@ -33,6 +34,7 @@ const ANNONCES = [
     montant: '2 000 FCFA',
     total: '2 000 FCFA',
     datePublie: 'Il y a 8 min',
+    poids: 'leger',
   },
   {
     id: '3',
@@ -46,6 +48,21 @@ const ANNONCES = [
     montant: '1 800 FCFA',
     total: '8 500 FCFA',
     datePublie: 'Il y a 14 min',
+    poids: null,
+  },
+  {
+    id: '4',
+    client: 'Aïcha Touré',
+    type: 'recuperation_colis',
+    description: 'Groupe électrogène à récupérer chez le fournisseur',
+    magasin: 'Zone industrielle, Porto-Novo',
+    adresse: 'Godomey, Cotonou',
+    distance: '6.2 km',
+    temps: '30 min',
+    montant: '3 500 FCFA',
+    total: '3 500 FCFA',
+    datePublie: 'Il y a 2 min',
+    poids: 'lourd',
   },
 ];
 
@@ -99,10 +116,37 @@ export default function AnnoncesScreen() {
                 </View>
                 <Text style={styles.clientNom}>{item.client}</Text>
               </View>
-              <View style={[styles.typeBadge, item.type === 'achat' ? styles.typeBadgeAchat : styles.typeBadgeColis]}>
-                <Text style={[styles.typeText, item.type === 'achat' ? styles.typeTextAchat : styles.typeTextColis]}>
-                  {item.type === 'achat' ? '🛒 Achat' : '📦 Colis'}
-                </Text>
+              <View style={styles.badgesRow}>
+                {/* Badge poids — uniquement pour les colis */}
+                {item.type === 'recuperation_colis' && item.poids && (
+                  <View style={[
+                    styles.poidsBadge,
+                    item.poids === 'lourd' ? styles.poidsBadgeLourd : styles.poidsBadgeLeger,
+                  ]}>
+                    <Ionicons
+                      name={item.poids === 'lourd' ? 'barbell-outline' : 'leaf-outline'}
+                      size={11}
+                      color={item.poids === 'lourd' ? Colors.error : Colors.success}
+                    />
+                    <Text style={[
+                      styles.poidsText,
+                      item.poids === 'lourd' ? styles.poidsTextLourd : styles.poidsTextLeger,
+                    ]}>
+                      {item.poids === 'lourd' ? 'Lourd' : 'Léger'}
+                    </Text>
+                  </View>
+                )}
+                <View style={[
+                  styles.typeBadge,
+                  item.type === 'achat' ? styles.typeBadgeAchat : styles.typeBadgeColis,
+                ]}>
+                  <Text style={[
+                    styles.typeText,
+                    item.type === 'achat' ? styles.typeTextAchat : styles.typeTextColis,
+                  ]}>
+                    {item.type === 'achat' ? '🛒 Achat' : '📦 Colis'}
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -186,7 +230,8 @@ const styles = StyleSheet.create({
     padding: Spacing.base, ...Shadows.sm,
   },
   cardHeader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Spacing.sm,
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: Spacing.sm,
   },
   clientInfo: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   avatar: {
@@ -194,12 +239,28 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primarySoft, alignItems: 'center', justifyContent: 'center',
   },
   clientNom: { fontFamily: FontFamily.semiBold, fontSize: FontSize.base, color: Colors.textPrimary },
+
+  // Badges groupés
+  badgesRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+
+  // Badge poids
+  poidsBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    paddingHorizontal: 8, paddingVertical: 3, borderRadius: BorderRadius.full,
+  },
+  poidsBadgeLeger: { backgroundColor: Colors.successLight },
+  poidsBadgeLourd: { backgroundColor: '#FDECEA' },
+  poidsText: { fontFamily: FontFamily.medium, fontSize: FontSize.xs },
+  poidsTextLeger: { color: Colors.success },
+  poidsTextLourd: { color: Colors.error },
+
   typeBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: BorderRadius.full },
   typeBadgeAchat: { backgroundColor: Colors.primarySoft },
   typeBadgeColis: { backgroundColor: Colors.infoLight },
   typeText: { fontFamily: FontFamily.medium, fontSize: FontSize.xs },
   typeTextAchat: { color: Colors.primary },
   typeTextColis: { color: Colors.info },
+
   desc: {
     fontFamily: FontFamily.regular, fontSize: FontSize.sm, color: Colors.textSecondary,
     lineHeight: 18, marginBottom: Spacing.sm,

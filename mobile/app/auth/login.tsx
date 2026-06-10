@@ -9,6 +9,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useOAuth, useUser } from '@clerk/clerk-expo';
 import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { Colors, Shadows } from '../../constants/Colors';
 import { FontFamily, FontSize, Spacing, BorderRadius } from '../../constants/Typography';
 import Button from '../../components/ui/Button';
@@ -28,7 +29,6 @@ export default function LoginScreen() {
 
   const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
-  // ── Redirection intelligente selon le profil ─────────────────
   const redirectByProfil = async (userId: string) => {
     const { data: profil } = await supabase
       .from('utilisateurs')
@@ -48,7 +48,6 @@ export default function LoginScreen() {
     }
 
     if (profil.mode_actuel === 'coursier') {
-      // Vérifier si le KYC est complété
       const { data: livreur } = await supabase
         .from('livreurs')
         .select('statut_validation')
@@ -56,16 +55,12 @@ export default function LoginScreen() {
         .single();
 
       if (!livreur) {
-        // Pas encore de KYC → formulaire KYC
         router.replace('/auth/kyc-coursier');
       } else if (livreur.statut_validation === 'en_attente') {
-        // KYC soumis mais pas encore validé → page succès KYC
         router.replace('/auth/kyc-success');
       } else if (livreur.statut_validation === 'approuve') {
-        // Approuvé → dashboard coursier
         router.replace('/coursier/dashboard');
       } else {
-        // Rejeté → retour client
         router.replace('/client/home');
       }
     }
@@ -87,7 +82,10 @@ export default function LoginScreen() {
 
     setGoogleLoading(true);
     try {
-      const { createdSessionId, setActive } = await startOAuthFlow();
+      // ✅ redirectUrl dynamique
+      const redirectUrl = Linking.createURL('/oauth-native-callback');
+      const { createdSessionId, setActive } = await startOAuthFlow({ redirectUrl });
+
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
         router.replace('/auth/role-choice');
@@ -96,7 +94,7 @@ export default function LoginScreen() {
       if (err?.message?.includes('already')) {
         Alert.alert(
           'Déjà connecté',
-          'Vous avez déjà un compte Google lié. Continuez vers l\'application.',
+          "Vous avez déjà un compte Google lié. Continuez vers l'application.",
           [{ text: 'Continuer', onPress: () => router.replace('/auth/role-choice') }]
         );
       } else {
@@ -136,7 +134,6 @@ export default function LoginScreen() {
 
       if (!data.user) { setError('Connexion échouée. Réessayez.'); return; }
 
-      // Redirection intelligente
       await redirectByProfil(data.user.id);
 
     } catch (err) {

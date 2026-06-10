@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import emailjs from '@emailjs/browser';
+import "@emailjs/browser";
 import { Colors } from '../../constants/Colors';
 import { FontFamily, FontSize, Spacing, BorderRadius } from '../../constants/Typography';
 import Button from '../../components/ui/Button';

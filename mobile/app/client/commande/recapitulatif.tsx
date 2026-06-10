@@ -22,10 +22,9 @@ const RECAP = {
   temps_estime: '35 min',
   montant_articles: 5600,
   commission_coursier: 1500,
-  frais_plateforme: 400,
 };
 
-const total = RECAP.montant_articles + RECAP.commission_coursier + RECAP.frais_plateforme;
+const total = RECAP.montant_articles + RECAP.commission_coursier;
 
 export default function RecapitulatifScreen() {
   const router = useRouter();
@@ -93,7 +92,6 @@ export default function RecapitulatifScreen() {
         <View style={styles.card}>
           <LigneTotal label="Sous-total articles" value={`${RECAP.montant_articles.toLocaleString()} FCFA`} />
           <LigneTotal label="Commission coursier" value={`${RECAP.commission_coursier.toLocaleString()} FCFA`} />
-          <LigneTotal label="Frais plateforme" value={`${RECAP.frais_plateforme.toLocaleString()} FCFA`} />
           <View style={styles.divider} />
           <LigneTotal label="Total à payer" value={`${total.toLocaleString()} FCFA`} highlight />
         </View>

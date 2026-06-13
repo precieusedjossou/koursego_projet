@@ -13,7 +13,7 @@ import Input from '../../../components/ui/Input';
 import Button from '../../../components/ui/Button';
 
 type TypeCourse = 'achat' | 'recuperation_colis';
-type PoidsColis = 'leger' | 'lourd';
+type PoidsColis = 'leger' | 'lourd' | null;
 
 interface Article {
   id: string;
@@ -31,12 +31,12 @@ export default function NouvelleCommande() {
     { id: '1', nom: '', quantite: '1', magasin: '' },
   ]);
 
-  // Récupération colis
   const [nomCourse, setNomCourse] = useState('');
   const [adresseDepart, setAdresseDepart] = useState('');
   const [descriptionColis, setDescriptionColis] = useState('');
-  const [poidsColis, setPoidsColis] = useState<PoidsColis>('leger');
+  const [poidsColis, setPoidsColis] = useState<PoidsColis>(null);
   const [allerRetour, setAllerRetour] = useState(false);
+  const [poidsError, setPoidsError] = useState(false);
 
   const addArticle = () => {
     setArticles((prev) => [
@@ -63,9 +63,16 @@ export default function NouvelleCommande() {
       Alert.alert('Champ manquant', 'Veuillez nommer tous les articles');
       return;
     }
-    if (typeCourse === 'recuperation_colis' && !nomCourse.trim()) {
-      Alert.alert('Champ manquant', 'Veuillez donner un nom à cette course');
-      return;
+    if (typeCourse === 'recuperation_colis') {
+      if (!nomCourse.trim()) {
+        Alert.alert('Champ manquant', 'Veuillez donner un nom à cette course');
+        return;
+      }
+      if (!poidsColis) {
+        setPoidsError(true);
+        Alert.alert('Champ manquant', 'Veuillez indiquer le poids du colis');
+        return;
+      }
     }
     router.push('/client/commande/recapitulatif');
   };
@@ -150,7 +157,6 @@ export default function NouvelleCommande() {
           <>
             <Text style={styles.sectionTitle}>Informations du colis</Text>
 
-            {/* Nom de la course */}
             <Input
               label="Nom de la course"
               placeholder="Ex: Colis Marché Dantokpa, Commande Jumia..."
@@ -158,7 +164,6 @@ export default function NouvelleCommande() {
               onChangeText={setNomCourse}
               leftIcon="bookmark-outline"
             />
-
             <Input
               label="Adresse de récupération"
               placeholder="Où chercher le colis ?"
@@ -166,7 +171,6 @@ export default function NouvelleCommande() {
               onChangeText={setAdresseDepart}
               leftIcon="location-outline"
             />
-
             <Input
               label="Description du colis"
               placeholder="Ex: Colis Amazon, boîte bleue, 2kg..."
@@ -177,46 +181,67 @@ export default function NouvelleCommande() {
               numberOfLines={3}
             />
 
-            {/* Poids du colis */}
-            <Text style={styles.label}>Poids du colis</Text>
-            <View style={styles.poidsRow}>
+            {/* ── Poids du colis ── */}
+            <View style={styles.poidsSection}>
+              <View style={styles.poidsTitleRow}>
+                <Text style={styles.sectionTitle}>Poids du colis</Text>
+                <Text style={styles.poidsObligatoire}>* obligatoire</Text>
+              </View>
+
+              {poidsError && !poidsColis && (
+                <View style={styles.poidsAlert}>
+                  <Ionicons name="alert-circle-outline" size={14} color={Colors.error} />
+                  <Text style={styles.poidsAlertText}>Veuillez sélectionner le poids</Text>
+                </View>
+              )}
+
               <TouchableOpacity
-                style={[styles.poidsBtn, poidsColis === 'leger' && styles.poidsBtnActive]}
-                onPress={() => setPoidsColis('leger')}
+                style={[
+                  styles.poidsOption,
+                  poidsColis === 'leger' && styles.poidsOptionActive,
+                  poidsError && !poidsColis && styles.poidsOptionError,
+                ]}
+                onPress={() => { setPoidsColis('leger'); setPoidsError(false); }}
                 activeOpacity={0.8}
               >
-                <Ionicons
-                  name="leaf-outline"
-                  size={20}
-                  color={poidsColis === 'leger' ? Colors.white : Colors.textSecondary}
-                />
-                <View>
-                  <Text style={[styles.poidsBtnText, poidsColis === 'leger' && styles.poidsBtnTextActive]}>
-                    Léger
+                <View style={[styles.poidsCheckbox, poidsColis === 'leger' && styles.poidsCheckboxActive]}>
+                  {poidsColis === 'leger' && (
+                    <Ionicons name="checkmark" size={14} color={Colors.white} />
+                  )}
+                </View>
+                <View style={styles.poidsIconBox}>
+                  <Text style={styles.poidsEmoji}>🪶</Text>
+                </View>
+                <View style={styles.poidsTexts}>
+                  <Text style={[styles.poidsOptionTitle, poidsColis === 'leger' && styles.poidsOptionTitleActive]}>
+                    Colis léger
                   </Text>
-                  <Text style={[styles.poidsBtnSub, poidsColis === 'leger' && styles.poidsBtnSubActive]}>
-                    Moins de 10 kg
-                  </Text>
+                  <Text style={styles.poidsOptionSub}>Moins de 10 kg — sac, boîte légère</Text>
                 </View>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.poidsBtn, poidsColis === 'lourd' && styles.poidsBtnActive]}
-                onPress={() => setPoidsColis('lourd')}
+                style={[
+                  styles.poidsOption,
+                  poidsColis === 'lourd' && styles.poidsOptionActive,
+                  poidsError && !poidsColis && styles.poidsOptionError,
+                ]}
+                onPress={() => { setPoidsColis('lourd'); setPoidsError(false); }}
                 activeOpacity={0.8}
               >
-                <Ionicons
-                  name="barbell-outline"
-                  size={20}
-                  color={poidsColis === 'lourd' ? Colors.white : Colors.textSecondary}
-                />
-                <View>
-                  <Text style={[styles.poidsBtnText, poidsColis === 'lourd' && styles.poidsBtnTextActive]}>
-                    Lourd
+                <View style={[styles.poidsCheckbox, poidsColis === 'lourd' && styles.poidsCheckboxActive]}>
+                  {poidsColis === 'lourd' && (
+                    <Ionicons name="checkmark" size={14} color={Colors.white} />
+                  )}
+                </View>
+                <View style={styles.poidsIconBox}>
+                  <Text style={styles.poidsEmoji}>🏋️</Text>
+                </View>
+                <View style={styles.poidsTexts}>
+                  <Text style={[styles.poidsOptionTitle, poidsColis === 'lourd' && styles.poidsOptionTitleActive]}>
+                    Colis lourd
                   </Text>
-                  <Text style={[styles.poidsBtnSub, poidsColis === 'lourd' && styles.poidsBtnSubActive]}>
-                    Plus de 10 kg
-                  </Text>
+                  <Text style={styles.poidsOptionSub}>Plus de 10 kg — électroménager, groupe...</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -268,7 +293,6 @@ export default function NouvelleCommande() {
           numberOfLines={2}
         />
 
-        {/* Info estimation */}
         <View style={styles.infoBox}>
           <Ionicons name="information-circle-outline" size={16} color={Colors.info} />
           <Text style={styles.infoText}>
@@ -307,10 +331,8 @@ const styles = StyleSheet.create({
 
   // Articles
   articleCard: {
-    backgroundColor: Colors.surfaceGray,
-    borderRadius: BorderRadius.lg,
-    padding: Spacing.base,
-    marginBottom: Spacing.md,
+    backgroundColor: Colors.surfaceGray, borderRadius: BorderRadius.lg,
+    padding: Spacing.base, marginBottom: Spacing.md,
   },
   articleHeader: {
     flexDirection: 'row', justifyContent: 'space-between',
@@ -322,24 +344,60 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
     justifyContent: 'center', paddingVertical: Spacing.md,
     borderRadius: BorderRadius.lg, borderWidth: 1.5,
-    borderColor: Colors.primary, borderStyle: 'dashed',
-    marginBottom: Spacing.xl,
+    borderColor: Colors.primary, borderStyle: 'dashed', marginBottom: Spacing.xl,
   },
   addArticleText: { fontFamily: FontFamily.medium, fontSize: FontSize.base, color: Colors.primary },
 
   // Poids
-  poidsRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
-  poidsBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingVertical: 14, paddingHorizontal: 12,
-    borderRadius: BorderRadius.lg, borderWidth: 1.5,
-    borderColor: Colors.border, backgroundColor: Colors.white,
+  poidsSection: { marginBottom: Spacing.lg },
+  poidsTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  poidsObligatoire: {
+    fontFamily: FontFamily.regular, fontSize: FontSize.xs,
+    color: Colors.error, marginBottom: Spacing.md,
   },
-  poidsBtnActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  poidsBtnText: { fontFamily: FontFamily.semiBold, fontSize: FontSize.sm, color: Colors.textPrimary },
-  poidsBtnTextActive: { color: Colors.white },
-  poidsBtnSub: { fontFamily: FontFamily.regular, fontSize: FontSize.xs, color: Colors.textLight },
-  poidsBtnSubActive: { color: 'rgba(255,255,255,0.8)' },
+  poidsAlert: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginBottom: Spacing.sm,
+  },
+  poidsAlertText: {
+    fontFamily: FontFamily.regular, fontSize: FontSize.xs, color: Colors.error,
+  },
+  poidsOption: {
+    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
+    borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: BorderRadius.lg, padding: Spacing.base,
+    marginBottom: Spacing.sm, backgroundColor: Colors.white,
+  },
+  poidsOptionActive: {
+    borderColor: Colors.primary, backgroundColor: Colors.primarySoft,
+  },
+  poidsOptionError: {
+    borderColor: Colors.error,
+  },
+  poidsCheckbox: {
+    width: 22, height: 22, borderRadius: 6,
+    borderWidth: 2, borderColor: Colors.border,
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: Colors.white,
+  },
+  poidsCheckboxActive: {
+    backgroundColor: Colors.primary, borderColor: Colors.primary,
+  },
+  poidsIconBox: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: Colors.surfaceGray,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  poidsEmoji: { fontSize: 22 },
+  poidsTexts: { flex: 1 },
+  poidsOptionTitle: {
+    fontFamily: FontFamily.semiBold, fontSize: FontSize.base, color: Colors.textPrimary,
+  },
+  poidsOptionTitleActive: { color: Colors.primary },
+  poidsOptionSub: {
+    fontFamily: FontFamily.regular, fontSize: FontSize.xs,
+    color: Colors.textSecondary, marginTop: 2,
+  },
 
   // Aller-retour
   allerRetourBtn: {
@@ -354,16 +412,12 @@ const styles = StyleSheet.create({
   allerRetourTitleActive: { color: Colors.white },
   allerRetourSub: { fontFamily: FontFamily.regular, fontSize: FontSize.xs, color: Colors.textSecondary },
   allerRetourSubActive: { color: 'rgba(255,255,255,0.8)' },
-
-  // Toggle switch
   toggle: {
     width: 44, height: 24, borderRadius: 12,
     backgroundColor: 'rgba(0,0,0,0.1)', justifyContent: 'center', padding: 2,
   },
   toggleActive: { backgroundColor: 'rgba(255,255,255,0.3)' },
-  toggleThumb: {
-    width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.primary,
-  },
+  toggleThumb: { width: 20, height: 20, borderRadius: 10, backgroundColor: Colors.primary },
   toggleThumbActive: { backgroundColor: Colors.white, alignSelf: 'flex-end' },
 
   // Info
@@ -376,4 +430,4 @@ const styles = StyleSheet.create({
     flex: 1, fontFamily: FontFamily.regular, fontSize: FontSize.xs,
     color: Colors.info, lineHeight: 18,
   },
-})
+});

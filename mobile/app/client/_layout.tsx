@@ -40,14 +40,14 @@ export default function ClientLayout() {
         options={{
           title: 'Commandes',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="list-outline" size={size} color={color} />
+            <Ionicons name="bag-outline" size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
         name="alertes"
         options={{
-          title: 'Alertes',
+          title: 'Notifications',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="notifications-outline" size={size} color={color} />
           ),
@@ -62,7 +62,8 @@ export default function ClientLayout() {
           ),
         }}
       />
-      {/* Écrans cachés de la tab bar */}
+
+      {/* Écrans cachés */}
       <Tabs.Screen name="commande/nouvelle" options={{ href: null }} />
       <Tabs.Screen name="commande/recapitulatif" options={{ href: null }} />
       <Tabs.Screen name="commande/confirmation" options={{ href: null }} />
@@ -71,6 +72,8 @@ export default function ClientLayout() {
       <Tabs.Screen name="course/chat" options={{ href: null }} />
       <Tabs.Screen name="course/fin" options={{ href: null }} />
       <Tabs.Screen name="course/notation" options={{ href: null }} />
+      <Tabs.Screen name="trouver-coursier" options={{ href: null }} />j
+      <Tabs.Screen name="commande/recherche_coursier" options={{ href: null }} />
     </Tabs>
   );
 }

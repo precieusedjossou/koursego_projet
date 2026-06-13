@@ -2,12 +2,13 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Switch, Alert,
+  TouchableOpacity, Switch, Alert, Modal, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../../constants/Colors';
 import { FontFamily, FontSize, Spacing, BorderRadius } from '../../constants/Typography';
+import Button from '../../components/ui/Button';
 
 interface MenuItem {
   icon: string;
@@ -17,9 +18,15 @@ interface MenuItem {
   rightEl?: React.ReactNode;
 }
 
+const SUJETS = ['Problème technique', 'Litige course', 'Paiement', 'Coursier introuvable', 'Autre'];
+
 export default function ProfilClientScreen() {
   const router = useRouter();
   const [isCoursier, setIsCoursier] = useState(false);
+  const [showSupport, setShowSupport] = useState(false);
+  const [sujet, setSujet] = useState('');
+  const [message, setMessage] = useState('');
+  const [loadingSupport, setLoadingSupport] = useState(false);
 
   const handleRoleSwitch = (val: boolean) => {
     if (val) {
@@ -38,6 +45,19 @@ export default function ProfilClientScreen() {
         ]
       );
     }
+  };
+
+  const handleEnvoyerSupport = () => {
+    if (!sujet.trim()) { Alert.alert('Champ manquant', 'Veuillez choisir un sujet'); return; }
+    if (!message.trim()) { Alert.alert('Champ manquant', 'Veuillez écrire votre message'); return; }
+    setLoadingSupport(true);
+    setTimeout(() => {
+      setLoadingSupport(false);
+      setShowSupport(false);
+      setSujet('');
+      setMessage('');
+      Alert.alert('Message envoyé ✅', "L'équipe KourseGO vous répondra dans les plus brefs délais.");
+    }, 1500);
   };
 
   const menuItems: MenuItem[] = [
@@ -72,7 +92,7 @@ export default function ProfilClientScreen() {
     {
       icon: 'help-circle-outline',
       label: 'Aide & Support',
-      onPress: () => {},
+      onPress: () => setShowSupport(true),
     },
     {
       icon: 'log-out-outline',
@@ -90,6 +110,7 @@ export default function ProfilClientScreen() {
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
+
         {/* Header profil */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarWrapper}>
@@ -169,6 +190,64 @@ export default function ProfilClientScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── MODAL SUPPORT ── */}
+      <Modal visible={showSupport} transparent animationType="slide">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSupport(false)}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalTitleRow}>
+              <Ionicons name="headset-outline" size={24} color={Colors.primary} />
+              <Text style={styles.modalTitle}>Contacter l'équipe</Text>
+            </View>
+            <Text style={styles.modalSub}>
+              Décrivez votre problème, nous vous répondrons rapidement.
+            </Text>
+
+            {/* Sujets rapides */}
+            <Text style={styles.inputLabel}>Sujet</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sujetsScroll}>
+              {SUJETS.map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.sujetChip, sujet === s && styles.sujetChipActive]}
+                  onPress={() => setSujet(s)}
+                >
+                  <Text style={[styles.sujetChipText, sujet === s && styles.sujetChipTextActive]}>
+                    {s}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Message */}
+            <Text style={styles.inputLabel}>Message</Text>
+            <TextInput
+              style={styles.messageInput}
+              placeholder="Expliquez votre problème en détail..."
+              placeholderTextColor={Colors.textLight}
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              numberOfLines={5}
+              textAlignVertical="top"
+            />
+
+            <Button
+              title="Envoyer le message"
+              onPress={handleEnvoyerSupport}
+              loading={loadingSupport}
+              style={{ marginTop: Spacing.lg }}
+            />
+            <View style={{ height: 16 }} />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -211,14 +290,50 @@ const styles = StyleSheet.create({
   },
   infoCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl, overflow: 'hidden', ...Shadows.sm },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.base },
-  infoRowBorder: { borderTopWidth: 1, borderTopColor: Colors.divider },
+  infoRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
   infoVal: { fontFamily: FontFamily.regular, fontSize: FontSize.base, color: Colors.textPrimary, flex: 1 },
   menuCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl, overflow: 'hidden', ...Shadows.sm },
-  menuItem: {
-    flexDirection: 'row', alignItems: 'center', gap: Spacing.md,
-    padding: Spacing.base,
-  },
-  menuItemBorder: { borderTopWidth: 1, borderTopColor: Colors.divider },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.base },
+  menuItemBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
   menuLabel: { flex: 1, fontFamily: FontFamily.medium, fontSize: FontSize.base, color: Colors.textPrimary },
   menuLabelDanger: { color: Colors.error },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: Spacing['2xl'], paddingTop: Spacing.md,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border, alignSelf: 'center', marginBottom: Spacing.xl,
+  },
+  modalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 4 },
+  modalTitle: { fontFamily: FontFamily.bold, fontSize: FontSize.xl, color: Colors.textPrimary },
+  modalSub: {
+    fontFamily: FontFamily.regular, fontSize: FontSize.sm,
+    color: Colors.textSecondary, marginBottom: Spacing.lg,
+  },
+  inputLabel: {
+    fontFamily: FontFamily.medium, fontSize: FontSize.sm,
+    color: Colors.textSecondary, marginBottom: Spacing.sm,
+  },
+  sujetsScroll: { marginBottom: Spacing.lg },
+  sujetChip: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: BorderRadius.full, borderWidth: 1.5,
+    borderColor: Colors.border, marginRight: 8,
+    backgroundColor: Colors.white,
+  },
+  sujetChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  sujetChipText: { fontFamily: FontFamily.medium, fontSize: FontSize.sm, color: Colors.textSecondary },
+  sujetChipTextActive: { color: Colors.white },
+  messageInput: {
+    borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: BorderRadius.lg, padding: Spacing.base,
+    fontFamily: FontFamily.regular, fontSize: FontSize.base,
+    color: Colors.textPrimary, height: 120,
+    backgroundColor: Colors.surfaceGray,
+  },
 });

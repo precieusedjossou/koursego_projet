@@ -2,16 +2,21 @@
 import React from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, Switch,
+  TouchableOpacity, Alert, Switch, Modal, TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../../constants/Colors';
 import { FontFamily, FontSize, Spacing, BorderRadius } from '../../constants/Typography';
+import Button from '../../components/ui/Button';
 
 export default function ProfilCoursierScreen() {
   const router = useRouter();
   const [disponible, setDisponible] = React.useState(true);
+  const [showSupport, setShowSupport] = React.useState(false);
+  const [sujet, setSujet] = React.useState('');
+  const [message, setMessage] = React.useState('');
+  const [loadingSupport, setLoadingSupport] = React.useState(false);
 
   const handleSwitchToClient = () => {
     Alert.alert(
@@ -19,19 +24,29 @@ export default function ProfilCoursierScreen() {
       'Vous allez basculer vers votre espace client. Vos infos coursier sont sauvegardées.',
       [
         { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Basculer',
-          onPress: () => router.replace('/client/home'),
-        },
+        { text: 'Basculer', onPress: () => router.replace('/client/home') },
       ]
     );
   };
 
+  const handleEnvoyerSupport = () => {
+    if (!sujet.trim()) { Alert.alert('Champ manquant', 'Veuillez entrer un sujet'); return; }
+    if (!message.trim()) { Alert.alert('Champ manquant', 'Veuillez écrire votre message'); return; }
+    setLoadingSupport(true);
+    setTimeout(() => {
+      setLoadingSupport(false);
+      setShowSupport(false);
+      setSujet('');
+      setMessage('');
+      Alert.alert('Message envoyé ✅', "L'équipe KourseGO vous répondra dans les plus brefs délais.");
+    }, 1500);
+  };
+
   const menuItems = [
     { icon: 'person-outline', label: 'Informations personnelles', onPress: () => {} },
-    { icon: 'card-outline', label: 'Documents d\'identité', onPress: () => {} },
+    { icon: 'card-outline', label: "Documents d'identité", onPress: () => {} },
     { icon: 'bicycle-outline', label: 'Passer en mode Client', onPress: handleSwitchToClient },
-    { icon: 'help-circle-outline', label: 'Aide & Support', onPress: () => {} },
+    { icon: 'help-circle-outline', label: 'Aide & Support', onPress: () => setShowSupport(true) },
     {
       icon: 'log-out-outline', label: 'Se déconnecter', danger: true,
       onPress: () => Alert.alert('Déconnexion', 'Êtes-vous sûr ?', [
@@ -41,9 +56,12 @@ export default function ProfilCoursierScreen() {
     },
   ];
 
+  const SUJETS = ['Problème technique', 'Litige course', 'Paiement', 'Compte suspendu', 'Autre'];
+
   return (
     <View style={styles.container}>
       <ScrollView showsVerticalScrollIndicator={false}>
+
         {/* Header profil */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarWrapper}>
@@ -56,8 +74,6 @@ export default function ProfilCoursierScreen() {
           </View>
           <Text style={styles.userName}>Jean Dupont</Text>
           <Text style={styles.userSub}>Coursier validé · Cotonou, Bénin</Text>
-
-          {/* Disponibilité */}
           <View style={styles.dispoRow}>
             <View style={[styles.dispoDot, disponible ? styles.dispoOn : styles.dispoOff]} />
             <Text style={styles.dispoText}>{disponible ? 'Disponible' : 'Hors ligne'}</Text>
@@ -157,6 +173,64 @@ export default function ProfilCoursierScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* ── MODAL SUPPORT ── */}
+      <Modal visible={showSupport} transparent animationType="slide">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowSupport(false)}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+
+            <View style={styles.modalTitleRow}>
+              <Ionicons name="headset-outline" size={24} color={Colors.primary} />
+              <Text style={styles.modalTitle}>Contacter l'équipe</Text>
+            </View>
+            <Text style={styles.modalSub}>
+              Décrivez votre problème, nous vous répondrons rapidement.
+            </Text>
+
+            {/* Sujets rapides */}
+            <Text style={styles.inputLabel}>Sujet</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.sujetsScroll}>
+              {SUJETS.map((s) => (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.sujetChip, sujet === s && styles.sujetChipActive]}
+                  onPress={() => setSujet(s)}
+                >
+                  <Text style={[styles.sujetChipText, sujet === s && styles.sujetChipTextActive]}>
+                    {s}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Message */}
+            <Text style={styles.inputLabel}>Message</Text>
+            <TextInput
+              style={styles.messageInput}
+              placeholder="Expliquez votre problème en détail..."
+              placeholderTextColor={Colors.textLight}
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              numberOfLines={5}
+              textAlignVertical="top"
+            />
+
+            <Button
+              title="Envoyer le message"
+              onPress={handleEnvoyerSupport}
+              loading={loadingSupport}
+              style={{ marginTop: Spacing.lg }}
+            />
+            <View style={{ height: 16 }} />
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -208,20 +282,59 @@ const styles = StyleSheet.create({
   },
   avisCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl, overflow: 'hidden', ...Shadows.sm },
   avisRow: { padding: Spacing.base, flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm },
-  avisRowBorder: { borderTopWidth: 1, borderTopColor: Colors.divider },
+  avisRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
   avisClient: { fontFamily: FontFamily.semiBold, fontSize: FontSize.sm, color: Colors.textPrimary },
   avisComm: { fontFamily: FontFamily.regular, fontSize: FontSize.xs, color: Colors.textSecondary, marginTop: 2 },
   starsRow: { flexDirection: 'row', gap: 2 },
   docCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl, overflow: 'hidden', ...Shadows.sm },
   docRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, padding: Spacing.base },
-  docRowBorder: { borderTopWidth: 1, borderTopColor: Colors.divider },
+  docRowBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
   docLabel: { flex: 1, fontFamily: FontFamily.medium, fontSize: FontSize.base, color: Colors.textPrimary },
   valide: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   valideText: { fontFamily: FontFamily.medium, fontSize: FontSize.xs, color: Colors.success },
   voirDoc: { fontFamily: FontFamily.medium, fontSize: FontSize.sm, color: Colors.primary },
   menuCard: { backgroundColor: Colors.white, borderRadius: BorderRadius.xl, overflow: 'hidden', ...Shadows.sm },
   menuItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, padding: Spacing.base },
-  menuItemBorder: { borderTopWidth: 1, borderTopColor: Colors.divider },
+  menuItemBorder: { borderTopWidth: 1, borderTopColor: Colors.border },
   menuLabel: { flex: 1, fontFamily: FontFamily.medium, fontSize: FontSize.base, color: Colors.textPrimary },
   menuLabelDanger: { color: Colors.error },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: Spacing['2xl'], paddingTop: Spacing.md,
+  },
+  modalHandle: {
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: Colors.border, alignSelf: 'center', marginBottom: Spacing.xl,
+  },
+  modalTitleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, marginBottom: 4 },
+  modalTitle: { fontFamily: FontFamily.bold, fontSize: FontSize.xl, color: Colors.textPrimary },
+  modalSub: {
+    fontFamily: FontFamily.regular, fontSize: FontSize.sm,
+    color: Colors.textSecondary, marginBottom: Spacing.lg,
+  },
+  inputLabel: {
+    fontFamily: FontFamily.medium, fontSize: FontSize.sm,
+    color: Colors.textSecondary, marginBottom: Spacing.sm,
+  },
+  sujetsScroll: { marginBottom: Spacing.lg },
+  sujetChip: {
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: BorderRadius.full, borderWidth: 1.5,
+    borderColor: Colors.border, marginRight: 8,
+    backgroundColor: Colors.white,
+  },
+  sujetChipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  sujetChipText: { fontFamily: FontFamily.medium, fontSize: FontSize.sm, color: Colors.textSecondary },
+  sujetChipTextActive: { color: Colors.white },
+  messageInput: {
+    borderWidth: 1.5, borderColor: Colors.border,
+    borderRadius: BorderRadius.lg, padding: Spacing.base,
+    fontFamily: FontFamily.regular, fontSize: FontSize.base,
+    color: Colors.textPrimary, height: 120,
+    backgroundColor: Colors.surfaceGray,
+  },
 });

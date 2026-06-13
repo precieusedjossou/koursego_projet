@@ -43,7 +43,7 @@ export default function CoursierLayout() {
       <Tabs.Screen
         name="gains"
         options={{
-          title: 'Gains',
+          title: 'Portefeuille',
           tabBarIcon: ({ color, size }) => <Ionicons name="wallet-outline" size={size} color={color} />,
         }}
       />

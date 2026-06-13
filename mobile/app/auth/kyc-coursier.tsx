@@ -102,8 +102,8 @@ export default function KYCCoursierScreen() {
       if (!selfieUrl) { Alert.alert('Erreur', 'Échec upload selfie. Réessayez.'); return; }
 
       // ✅ type_document en minuscule = correspond à la contrainte SQL
-      const { error: livreurError } = await supabase.from('livreurs').upsert({
-        id_utilisateur:    user.id,
+      const { error: livreurError } = await supabase.from('coursier').upsert({
+        id: user.id,
         statut_validation: 'en_attente',
         disponibilite:     false,
         type_document:     docType,
@@ -118,7 +118,7 @@ export default function KYCCoursierScreen() {
       }
 
       await supabase.from('utilisateurs')
-        .update({ mode_actuel: 'coursier' })
+        .update({ mode: 'coursier' })
         .eq('id', user.id);
 
       router.replace('/auth/kyc-success');

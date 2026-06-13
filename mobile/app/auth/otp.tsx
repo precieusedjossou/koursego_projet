@@ -13,19 +13,19 @@ import Button from '../../components/ui/Button';
 import Header from '../../components/shared/Header';
 import { supabase } from '../../lib/supabase';
 
-const OTP_LENGTH       = 4;
-const RESEND_DELAY     = 30;
+const OTP_LENGTH          = 4;
+const RESEND_DELAY        = 30;
 const EMAILJS_SERVICE_ID  = 'service_nrvn2ko';
 const EMAILJS_TEMPLATE_ID = 'template_pksoqyn';
 const EMAILJS_PUBLIC_KEY  = 'aQ5Zh4kgS0TfpCNPy';
 
 export default function OTPScreen() {
   const router = useRouter();
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email, password } = useLocalSearchParams<{ email: string; password: string }>();
 
-  const [otp, setOtp]           = useState(Array(OTP_LENGTH).fill(''));
-  const [loading, setLoading]   = useState(false);
-  const [error, setError]       = useState('');
+  const [otp, setOtp]             = useState(Array(OTP_LENGTH).fill(''));
+  const [loading, setLoading]     = useState(false);
+  const [error, setError]         = useState('');
   const [countdown, setCountdown] = useState(RESEND_DELAY);
   const [canResend, setCanResend] = useState(false);
   const inputs = useRef<Array<TextInput | null>>([]);
@@ -63,7 +63,7 @@ export default function OTPScreen() {
     setError('');
 
     try {
-      // Récupérer le code depuis Supabase
+      // ── Étape 1 : Vérifier le code OTP dans Supabase ─────────
       const { data, error: fetchError } = await supabase
         .from('otp_codes')
         .select('code, expires_at')
@@ -78,21 +78,54 @@ export default function OTPScreen() {
         return;
       }
 
-      // Vérifier l'expiration
+      // ── Étape 2 : Vérifier l'expiration ──────────────────────
       const isExpired = new Date(data.expires_at) < new Date();
       if (isExpired) {
         setError('Ce code a expiré. Demandez un nouveau code.');
-        // Supprimer le code expiré
         await supabase.from('otp_codes').delete().eq('email', email);
         setOtp(Array(OTP_LENGTH).fill(''));
         inputs.current[0]?.focus();
         return;
       }
 
-      // ✅ Code valide — nettoyer et continuer
+      // ── Étape 3 : Supprimer le code utilisé ──────────────────
       await supabase.from('otp_codes').delete().eq('email', email);
 
-      // Mettre à jour otp_verifie dans la table utilisateurs
+      // ── Étape 4 : Vérifier si une session est déjà active ────
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        // Pas de session → l'utilisateur vient de s'inscrire
+        // On confirme son email manuellement via l'Admin API n'est pas
+        // accessible côté client, donc on utilise signInWithPassword
+        // Le mot de passe est passé en paramètre depuis register.tsx
+        if (password) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: email as string,
+            password: password as string,
+          });
+
+          if (signInError) {
+            // Si connexion échoue, rediriger vers login
+            Alert.alert(
+              'Vérification réussie !',
+              'Votre email est confirmé. Connectez-vous pour continuer.',
+              [{ text: 'Se connecter', onPress: () => router.replace('/auth/login') }]
+            );
+            return;
+          }
+        } else {
+          // Pas de mot de passe disponible → rediriger vers login
+          Alert.alert(
+            'Vérification réussie !',
+            'Votre email est confirmé. Connectez-vous pour continuer.',
+            [{ text: 'Se connecter', onPress: () => router.replace('/auth/login') }]
+          );
+          return;
+        }
+      }
+
+      // ── Étape 5 : Récupérer l'utilisateur et mettre à jour ───
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase
@@ -101,6 +134,7 @@ export default function OTPScreen() {
           .eq('id', user.id);
       }
 
+      // ── Étape 6 : Rediriger vers le choix de rôle ────────────
       router.replace('/auth/role-choice');
 
     } catch (err) {
@@ -114,18 +148,15 @@ export default function OTPScreen() {
     if (!canResend || !email) return;
 
     try {
-      // Générer un nouveau code
       const newCode = Math.floor(1000 + Math.random() * 9000).toString();
 
-      // Supprimer l'ancien et insérer le nouveau
       await supabase.from('otp_codes').delete().eq('email', email);
       await supabase.from('otp_codes').insert([{
         email,
-        code: newCode,
+        code:       newCode,
         expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
       }]);
 
-      // Renvoyer l'email
       await emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
@@ -145,9 +176,8 @@ export default function OTPScreen() {
 
   const isComplete = otp.every((d) => d !== '');
 
-  // Affichage masqué de l'email : jo**@gmail.com
   const maskedEmail = email
-    ? email.replace(/(.{2})(.*)(@.*)/, '$1**$3')
+    ? (email as string).replace(/(.{2})(.*)(@.*)/, '$1**$3')
     : '';
 
   return (
@@ -161,7 +191,6 @@ export default function OTPScreen() {
           <Text style={styles.emailText}>{maskedEmail}</Text>
         </Text>
 
-        {/* Cases OTP */}
         <View style={styles.otpRow}>
           {otp.map((digit, idx) => (
             <TextInput
@@ -185,7 +214,6 @@ export default function OTPScreen() {
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {/* Renvoi du code */}
         <View style={styles.resendRow}>
           {canResend ? (
             <TouchableOpacity onPress={handleResend}>

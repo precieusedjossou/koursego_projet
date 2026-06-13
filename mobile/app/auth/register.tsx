@@ -21,13 +21,13 @@ export default function RegisterScreen() {
   const router = useRouter();
 
   const [form, setForm] = useState({
-  nom_complet: '',
-  email: '',
-  telephone: '',
-  npi: '',
-  password: '',
-  confirm_password: '',
-});
+    nom_complet:      '',
+    email:            '',
+    telephone:        '',
+    npi:              '',
+    password:         '',
+    confirm_password: '',
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
@@ -35,7 +35,7 @@ export default function RegisterScreen() {
     setForm((f) => ({ ...f, [key]: value }));
 
   const handleRegister = async () => {
-   if (!form.nom_complet || !form.email || !form.telephone || !form.npi || !form.password) {
+    if (!form.nom_complet || !form.email || !form.telephone || !form.npi || !form.password) {
       setError('Veuillez remplir tous les champs'); return;
     }
     if (form.password !== form.confirm_password) {
@@ -53,15 +53,47 @@ export default function RegisterScreen() {
 
     try {
       const emailLower = form.email.trim().toLowerCase();
+      const npiTrimmed = form.npi.trim();
 
-      // Étape 1 : Créer le compte Supabase Auth
+      // ── Étape 1 : Vérifier le NPI dans la base ANIP simulée ──
+      // maybeSingle() retourne null si pas trouvé (pas d'erreur)
+      const { data: anipData, error: anipError } = await supabase
+        .from('anip_citoyens')
+        .select('npi')
+        .eq('npi', npiTrimmed)
+        .maybeSingle();
+
+      if (anipError) {
+        setError('Erreur lors de la vérification du NPI.'); return;
+      }
+      if (!anipData) {
+        setError('NPI introuvable. Vérifiez votre numéro NPI.'); return;
+      }
+
+      // ── Étape 2 : Vérifier que le NPI n'est pas déjà utilisé ─
+      // maybeSingle() retourne null si personne n'a ce NPI
+      const { data: npiExistant, error: npiError } = await supabase
+        .from('utilisateurs')
+        .select('id')
+        .eq('npi', npiTrimmed)
+        .maybeSingle();
+
+      if (npiError) {
+        setError('Erreur lors de la vérification du NPI.'); return;
+      }
+      if (npiExistant) {
+        setError('Ce NPI est déjà associé à un compte.'); return;
+      }
+
+      // ── Étape 3 : Créer le compte Supabase Auth ───────────────
       const { data, error: signUpError } = await supabase.auth.signUp({
-        email: emailLower,
+        email:    emailLower,
         password: form.password,
         options: {
           data: {
             nom_complet: form.nom_complet.trim(),
             telephone:   form.telephone.trim(),
+            npi:         npiTrimmed,
           },
         },
       });
@@ -76,13 +108,13 @@ export default function RegisterScreen() {
       }
       if (!data.user) { setError('Inscription échouée. Réessayez.'); return; }
 
-      // Étape 2 : Générer le code OTP à 4 chiffres
+      // ── Étape 4 : Générer le code OTP à 4 chiffres ───────────
       const code = Math.floor(1000 + Math.random() * 9000).toString();
 
-      // Étape 3 : Supprimer les anciens codes pour éviter les conflits
+      // ── Étape 5 : Supprimer les anciens codes ─────────────────
       await supabase.from('otp_codes').delete().eq('email', emailLower);
 
-      // Étape 4 : Stocker le code avec expiration 10 minutes
+      // ── Étape 6 : Stocker le nouveau code (expire dans 10 min) ─
       const { error: insertError } = await supabase.from('otp_codes').insert([{
         email:      emailLower,
         code:       code,
@@ -93,8 +125,7 @@ export default function RegisterScreen() {
         setError('Erreur technique. Réessayez.'); return;
       }
 
-      // Étape 5 : Envoyer l'email via EmailJS
-      // ⚠️ Ton template doit contenir {{code}}, {{to_email}} et {{nom}}
+      // ── Étape 7 : Envoyer l'email via EmailJS ─────────────────
       await emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
@@ -102,8 +133,8 @@ export default function RegisterScreen() {
         EMAILJS_PUBLIC_KEY,
       );
 
-      // Étape 6 : Aller vers l'écran OTP
-      router.push({ pathname: '/auth/otp', params: { email: emailLower } });
+      // ── Étape 8 : Rediriger vers l'écran OTP ──────────────────
+      router.push({ pathname: '/auth/otp', params: { email: emailLower, password: form.password } });
 
     } catch (err: any) {
       console.error('Erreur register:', JSON.stringify(err, null, 2));
@@ -121,19 +152,40 @@ export default function RegisterScreen() {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: Colors.white }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Header showBack title="" />
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <Text style={styles.title}>Créer un compte</Text>
         <Text style={styles.subtitle}>Rejoignez-nous et commencez l'aventure</Text>
+
         <View style={styles.form}>
-          <Input label="Nom complet" placeholder="John Doe" value={form.nom_complet} onChangeText={(v) => update('nom_complet', v)} leftIcon="person-outline" autoCapitalize="words" />
-          <Input label="E-mail" placeholder="nom@exemple.com" value={form.email} onChangeText={(v) => update('email', v)} leftIcon="mail-outline" keyboardType="email-address" autoCapitalize="none" />
-          <Input label="Numéro de téléphone" placeholder="+229 XX XX XX XX" value={form.telephone} onChangeText={(v) => update('telephone', v)} leftIcon="call-outline" keyboardType="phone-pad" />
-          <Input label="NPI" placeholder="123456789" value={form.npi} onChangeText={(v) => update('npi', v)} leftIcon="id-card-outline" keyboardType="numeric" />
-          <Input label="Mot de passe" placeholder="••••••••" value={form.password} onChangeText={(v) => update('password', v)} leftIcon="lock-closed-outline" isPassword />
-          <Input label="Confirmer le mot de passe" placeholder="••••••••" value={form.confirm_password} onChangeText={(v) => update('confirm_password', v)} leftIcon="lock-closed-outline" isPassword />
+          <Input label="Nom complet" placeholder="John Doe"
+            value={form.nom_complet} onChangeText={(v) => { update('nom_complet', v); setError(''); }}
+            leftIcon="person-outline" autoCapitalize="words" />
+          <Input label="E-mail" placeholder="nom@exemple.com"
+            value={form.email} onChangeText={(v) => { update('email', v); setError(''); }}
+            leftIcon="mail-outline" keyboardType="email-address" autoCapitalize="none" />
+          <Input label="Numéro de téléphone" placeholder="+229 XX XX XX XX"
+            value={form.telephone} onChangeText={(v) => { update('telephone', v); setError(''); }}
+            leftIcon="call-outline" keyboardType="phone-pad" />
+          <Input label="NPI (Numéro Personnel d'Identification)" placeholder="Ex: 1234567890"
+            value={form.npi} onChangeText={(v) => { update('npi', v); setError(''); }}
+            leftIcon="id-card-outline" keyboardType="numeric" />
+          <Input label="Mot de passe" placeholder="••••••••"
+            value={form.password} onChangeText={(v) => { update('password', v); setError(''); }}
+            leftIcon="lock-closed-outline" isPassword />
+          <Input label="Confirmer le mot de passe" placeholder="••••••••"
+            value={form.confirm_password} onChangeText={(v) => { update('confirm_password', v); setError(''); }}
+            leftIcon="lock-closed-outline" isPassword />
+
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          <Button title="S'inscrire" onPress={handleRegister} loading={loading} style={{ marginTop: Spacing.sm }} />
+
+          <Button title="S'inscrire" onPress={handleRegister}
+            loading={loading} style={{ marginTop: Spacing.sm }} />
         </View>
+
         <View style={styles.loginRow}>
           <Text style={styles.loginText}>Vous avez déjà un compte ? </Text>
           <TouchableOpacity onPress={() => router.push('/auth/login')}>

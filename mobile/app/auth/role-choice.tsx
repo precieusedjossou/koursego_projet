@@ -20,15 +20,27 @@ export default function RoleChoiceScreen() {
         router.replace('/auth/login');
         return;
       }
-      const { error } = await supabase
-        .from('utilisateurs')
-        .update({ mode_actuel: 'coursier' })
-        .eq('id', user.id);
-      if (error) {
-        Alert.alert('Erreur', 'Une erreur est survenue. Veuillez réessayer.');
+
+      // Vérifier si le coursier a déjà soumis un dossier
+      const { data: coursier } = await supabase
+        .from('coursier')
+        .select('statut_validation')
+        .eq('id', user.id)
+        .single();
+
+      if (coursier) {
+        // Dossier déjà soumis → page d'attente directement
+        router.replace('/auth/kyc-success');
         return;
       }
-      router.push('/auth/kyc-coursier');
+
+      // Pas encore de dossier → mettre mode coursier + aller aux conditions
+      await supabase
+        .from('utilisateurs')
+        .update({ mode: 'coursier' })
+        .eq('id', user.id);
+
+      router.push('/auth/conditionCoursier');
     } catch (err) {
       Alert.alert('Erreur réseau', 'Vérifiez votre connexion.');
     } finally {
@@ -45,10 +57,12 @@ export default function RoleChoiceScreen() {
         router.replace('/auth/login');
         return;
       }
+      // Repasser en mode client même si dossier coursier en attente
       await supabase
         .from('utilisateurs')
-        .update({ mode_actuel: 'client' })
+        .update({ mode: 'client' })
         .eq('id', user.id);
+
       router.replace('/client/home');
     } catch (err) {
       Alert.alert('Erreur réseau', 'Vérifiez votre connexion.');
@@ -60,7 +74,6 @@ export default function RoleChoiceScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.content}>
-
         <Text style={styles.title}>
           Bienvenue sur{'\n'}
           <Text style={styles.titleBrand}>KourseGO</Text>
@@ -90,70 +103,21 @@ export default function RoleChoiceScreen() {
           <Ionicons name="bag-handle-outline" size={20} color={Colors.primary} />
           <Text style={styles.btnClientText}>Non, je veux commander</Text>
         </TouchableOpacity>
-
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.white },
-  content: {
-    flex: 1,
-    padding: Spacing['2xl'],
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontFamily: FontFamily.bold,
-    fontSize: FontSize['2xl'],
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: Spacing.sm,
-  },
-  titleBrand: { color: Colors.primary },
-  subtitle: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.base,
-    color: Colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: Spacing['2xl'],
-    lineHeight: 22,
-  },
-  btnCoursier: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: Colors.primary,
-    borderRadius: BorderRadius.xl,
-    paddingVertical: 16,
-    marginBottom: Spacing.md,
-    ...Shadows.md,
-  },
-  btnCoursierText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.md,
-    color: Colors.white,
-  },
-  btnClient: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.xl,
-    paddingVertical: 16,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-  },
-  btnClientText: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.md,
-    color: Colors.primary,
-  },
-  btnDisabled: { opacity: 0.6 },
+  container:         { flex: 1, backgroundColor: Colors.white },
+  content:           { flex: 1, padding: Spacing['2xl'], alignItems: 'center', justifyContent: 'center' },
+  title:             { fontFamily: FontFamily.bold, fontSize: FontSize['2xl'], color: Colors.textPrimary, textAlign: 'center', marginBottom: Spacing.sm },
+  titleBrand:        { color: Colors.primary },
+  subtitle:          { fontFamily: FontFamily.regular, fontSize: FontSize.base, color: Colors.textSecondary, textAlign: 'center', marginBottom: Spacing['2xl'], lineHeight: 22 },
+  btnCoursier:       { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.primary, borderRadius: BorderRadius.xl, paddingVertical: 16, marginBottom: Spacing.md, ...Shadows.md },
+  btnCoursierText:   { fontFamily: FontFamily.semiBold, fontSize: FontSize.md, color: Colors.white },
+  btnClient:         { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: Colors.white, borderRadius: BorderRadius.xl, paddingVertical: 16, borderWidth: 1.5, borderColor: Colors.primary },
+  btnClientText:     { fontFamily: FontFamily.semiBold, fontSize: FontSize.md, color: Colors.primary },
+  btnDisabled:       { opacity: 0.6 },
   btnClientDisabled: { opacity: 0.6 },
 });

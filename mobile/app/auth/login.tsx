@@ -29,10 +29,11 @@ export default function LoginScreen() {
 
   const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
+  // ── Redirection selon le profil utilisateur ─────────────────
   const redirectByProfil = async (userId: string) => {
     const { data: profil } = await supabase
       .from('utilisateurs')
-      .select('mode_actuel, statut_compte')
+      .select('mode, statut_compte')
       .eq('id', userId)
       .single();
 
@@ -42,12 +43,12 @@ export default function LoginScreen() {
       return;
     }
 
-    if (!profil || !profil.mode_actuel || profil.mode_actuel === 'client') {
+    if (!profil || !profil.mode || profil.mode === 'client') {
       router.replace('/client/home');
       return;
     }
 
-    if (profil.mode_actuel === 'coursier') {
+    if (profil.mode === 'coursier') {
       const { data: livreur } = await supabase
         .from('livreurs')
         .select('statut_validation')
@@ -66,8 +67,9 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Connexion Google via Clerk ───────────────────────────────
+  // ── Connexion Google via Clerk → synchronisé avec Supabase ──
   const handleGoogleSignIn = async () => {
+    // Si déjà connecté via Clerk, rediriger directement
     if (clerkUser) {
       Alert.alert(
         'Déjà connecté',
@@ -82,15 +84,18 @@ export default function LoginScreen() {
 
     setGoogleLoading(true);
     try {
-      // ✅ redirectUrl dynamique
+      // URL de callback dynamique pour Expo
       const redirectUrl = Linking.createURL('/oauth-native-callback');
       const { createdSessionId, setActive } = await startOAuthFlow({ redirectUrl });
 
       if (createdSessionId && setActive) {
         await setActive({ session: createdSessionId });
+        // Après Google, rediriger vers le choix de rôle
+        // (nouvel utilisateur ou profil incomplet)
         router.replace('/auth/role-choice');
       }
     } catch (err: any) {
+      console.error('Erreur Google OAuth:', err);
       if (err?.message?.includes('already')) {
         Alert.alert(
           'Déjà connecté',
@@ -105,7 +110,7 @@ export default function LoginScreen() {
     }
   };
 
-  // ── Connexion email + mot de passe ───────────────────────────
+  // ── Connexion email + mot de passe via Supabase Auth ─────────
   const handleLogin = async () => {
     if (!email || !password) {
       setError('Veuillez remplir tous les champs'); return;
@@ -115,7 +120,7 @@ export default function LoginScreen() {
 
     try {
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
-        email: email.trim().toLowerCase(),
+        email:    email.trim().toLowerCase(),
         password,
       });
 
@@ -123,6 +128,7 @@ export default function LoginScreen() {
         if (signInError.message.includes('Invalid login credentials')) {
           setError('Email ou mot de passe incorrect.');
         } else if (signInError.message.includes('Email not confirmed')) {
+          // Renvoyer vers OTP si email non vérifié
           router.push({ pathname: '/auth/otp', params: { email: email.trim().toLowerCase() } });
         } else if (signInError.message.includes('Too many requests')) {
           setError('Trop de tentatives. Attendez quelques minutes.');
@@ -144,31 +150,53 @@ export default function LoginScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.content}
-        keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.logoSection}>
           <View style={styles.iconWrapper}>
-            <Image source={require('../../assets/images/logo_icon_orange.png')}
-              style={styles.icon} resizeMode="contain" />
+            <Image
+              source={require('../../assets/images/logo_icon_orange.png')}
+              style={styles.icon}
+              resizeMode="contain"
+            />
           </View>
           <Text style={styles.title}>Bon retour</Text>
           <Text style={styles.subtitle}>Connectez-vous pour gérer vos courses</Text>
         </View>
 
         <View style={styles.form}>
-          <Input label="Adresse e-mail" placeholder="nom@exemple.com"
-            value={email} onChangeText={(v) => { setEmail(v); setError(''); }}
-            leftIcon="mail-outline" keyboardType="email-address"
-            autoCapitalize="none" autoCorrect={false} />
-          <Input label="Mot de passe" placeholder="Entrez votre mot de passe"
-            value={password} onChangeText={(v) => { setPassword(v); setError(''); }}
-            leftIcon="lock-closed-outline" isPassword />
+          <Input
+            label="Adresse e-mail"
+            placeholder="nom@exemple.com"
+            value={email}
+            onChangeText={(v) => { setEmail(v); setError(''); }}
+            leftIcon="mail-outline"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          <Input
+            label="Mot de passe"
+            placeholder="Entrez votre mot de passe"
+            value={password}
+            onChangeText={(v) => { setPassword(v); setError(''); }}
+            leftIcon="lock-closed-outline"
+            isPassword
+          />
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          <Button title="Se connecter" onPress={handleLogin}
-            loading={loading} style={styles.loginBtn} />
+          <Button
+            title="Se connecter"
+            onPress={handleLogin}
+            loading={loading}
+            style={styles.loginBtn}
+          />
         </View>
 
         <View style={styles.separator}>
@@ -179,7 +207,10 @@ export default function LoginScreen() {
 
         <TouchableOpacity
           style={[styles.socialBtn, googleLoading && styles.socialBtnDisabled]}
-          onPress={handleGoogleSignIn} activeOpacity={0.7} disabled={googleLoading}>
+          onPress={handleGoogleSignIn}
+          activeOpacity={0.7}
+          disabled={googleLoading}
+        >
           <Ionicons name="logo-google" size={20} color="#DB4437" />
           <Text style={styles.socialText}>
             {googleLoading ? 'Connexion...' : 'Continuer avec Google'}

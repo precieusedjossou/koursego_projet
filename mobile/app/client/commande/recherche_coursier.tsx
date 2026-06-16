@@ -1,28 +1,42 @@
 // app/client/commande/recherche-coursier.tsx
-// Page affichée après confirmation de la commande
-// En attente qu'un coursier accepte la course
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Animated, Alert,
+  Animated, Alert, ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Shadows } from '../../../constants/Colors';
 import { FontFamily, FontSize, Spacing, BorderRadius } from '../../../constants/Typography';
+import { supabase } from '../../../lib/supabase';
+
+interface Article {
+  id: string; nom: string; quantite: string; magasin: string; prix: string;
+}
 
 export default function RechercheCoursierScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
 
-  // Animation de pulsation du cercle orange
-  const pulseAnim = new Animated.Value(1);
-  const rotateAnim = new Animated.Value(0);
+  // Paramètres reçus depuis recapitulatif
+  const commandeId       = (params.commandeId as string) || '';
+  const adresseLivraison = (params.adresseLivraison as string) || '';
+  const typeCourse       = (params.typeCourse as string) || 'achat';
+  const nomCourse        = (params.nomCourse as string) || '';
+  const total            = parseFloat((params.total as string) || '0');
+  const articles: Article[] = params.articles ? JSON.parse(params.articles as string) : [];
 
-  // Simulation : après 5 secondes un coursier est trouvé
-  // TODO: remplacer par Supabase Realtime
-  // supabase.channel('course-xxx').on('UPDATE', ...) → quand statut = 'acceptee'
+  // Résumé articles pour affichage
+  const resumeArticles = typeCourse === 'achat'
+    ? articles.map((a) => `${a.nom} ×${a.quantite}`).join(', ')
+    : nomCourse || 'Récupération de colis';
+  const nbArticles = typeCourse === 'achat' ? articles.length : 1;
+
+  // Animation pulsation
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
   useEffect(() => {
-    // Animation pulsation
+    // Animation pulsation infinie
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.12, duration: 900, useNativeDriver: true }),
@@ -30,13 +44,84 @@ export default function RechercheCoursierScreen() {
       ])
     ).start();
 
-    // Simulation coursier trouvé après 5s
-    const timer = setTimeout(() => {
-      router.replace('/client/commande/confirmation');
-    }, 5000);
+    if (!commandeId) return;
 
-    return () => clearTimeout(timer);
-  }, []);
+    // ── Supabase Realtime : écoute la mise à jour de la commande ──
+    // Dès qu'un coursier accepte → statut_course passe à 'acceptee'
+    // → on récupère ses infos et on navigue vers confirmation
+    const channel = supabase
+      .channel(`commande-${commandeId}`)
+      .on(
+        'postgres_changes',
+        {
+          event:  'UPDATE',
+          schema: 'public',
+          table:  'commande',
+          filter: `id_commande=eq.${commandeId}`,
+        },
+        async (payload) => {
+          const updated = payload.new as any;
+
+          if (updated.statut_commande === 'acceptee' && updated.id_coursier) {
+            // Récupérer les infos du coursier avec typage explicite
+            const { data: coursierRaw } = await supabase
+              .from('coursier')
+              .select(`
+                id,
+                nombre_courses,
+                utilisateur:id ( nom_complet, telephone, photo_profil_url )
+              `)
+              .eq('id', updated.id_coursier)
+              .single();
+
+            // Support des deux noms possibles de la table
+            const utilisateur = (coursierRaw?.utilisateur as unknown) as {
+              nom_complet: string;
+              telephone: string;
+              photo_profil_url: string;
+            } | null;
+
+            // Debug — à supprimer après confirmation
+            console.log('[Coursier trouvé]', JSON.stringify(coursierRaw));
+            console.log('[Utilisateur]', JSON.stringify(utilisateur));
+
+            // Récupérer la note moyenne du coursier
+            const { data: avisData } = await supabase
+              .from('avis')
+              .select('note')
+              .eq('id_coursier', updated.id_coursier);
+
+            const noteMoyenne = avisData && avisData.length > 0
+              ? (avisData.reduce((s: number, a: any) => s + a.note, 0) / avisData.length).toFixed(1)
+              : '5.0';
+
+            // Naviguer vers confirmation avec toutes les infos
+            router.replace({
+              pathname: '/client/commande/confirmation',
+              params: {
+                commandeId,
+                coursierNom:      utilisateur?.nom_complet     || 'Coursier',
+                coursierTel:      utilisateur?.telephone       || '',
+                coursierPhoto:    utilisateur?.photo_profil_url || '',
+                coursierNote:     noteMoyenne,
+                coursierCourses:  coursierRaw?.nombre_courses?.toString() || '0',
+                // Infos commande
+                adresseLivraison,
+                typeCourse,
+                articles:         JSON.stringify(articles),
+                nomCourse,
+                total:            total.toFixed(0),
+                montantArticles:  (params.montantArticles as string) || '0',
+                commission:       (params.commission as string) || '0',
+              },
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [commandeId]);
 
   const handleAnnuler = () => {
     Alert.alert(
@@ -47,7 +132,15 @@ export default function RechercheCoursierScreen() {
         {
           text: 'Oui, annuler',
           style: 'destructive',
-          onPress: () => router.replace('/client/home'),
+          onPress: async () => {
+            if (commandeId) {
+              await supabase
+                .from('commande')
+                .update({ statut_commande: 'annulee' })
+                .eq('id_commande', commandeId);
+            }
+            router.replace('/client/home');
+          },
         },
       ]
     );
@@ -55,8 +148,6 @@ export default function RechercheCoursierScreen() {
 
   return (
     <View style={styles.container}>
-
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={handleAnnuler} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />
@@ -65,7 +156,7 @@ export default function RechercheCoursierScreen() {
         <View style={{ width: 30 }} />
       </View>
 
-      <View style={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
 
         {/* Badge devis validé */}
         <View style={styles.devisBadge}>
@@ -73,29 +164,24 @@ export default function RechercheCoursierScreen() {
           <Text style={styles.devisText}>Devis validé</Text>
         </View>
 
-        {/* Animation recherche */}
+        {/* Animation pulsation */}
         <View style={styles.animWrapper}>
-          {/* Cercles de pulsation */}
           <Animated.View style={[styles.pulseRing3, { transform: [{ scale: pulseAnim }] }]} />
           <Animated.View style={[styles.pulseRing2, { transform: [{ scale: pulseAnim }] }]} />
           <Animated.View style={[styles.pulseRing1, { transform: [{ scale: pulseAnim }] }]} />
-
-          {/* Icône coursier */}
           <View style={styles.iconCircle}>
             <Ionicons name="bicycle" size={36} color={Colors.white} />
           </View>
         </View>
 
-        {/* Titre */}
         <Text style={styles.title}>Recherche de coursier{'\n'}en cours...</Text>
 
-        {/* Badge connexion */}
         <View style={styles.connexionBadge}>
           <View style={styles.connexionDot} />
-          <Text style={styles.connexionText}>Connexion aux coursiers</Text>
+          <Text style={styles.connexionText}>Connexion aux coursiers disponibles</Text>
         </View>
 
-        {/* Infos commande */}
+        {/* Récapitulatif léger de la commande */}
         <View style={styles.infoCard}>
 
           <View style={styles.infoRow}>
@@ -104,7 +190,7 @@ export default function RechercheCoursierScreen() {
             </View>
             <View style={styles.infoTexts}>
               <Text style={styles.infoLabel}>Livraison à</Text>
-              <Text style={styles.infoVal}>Fidjrossè, Cotonou</Text>
+              <Text style={styles.infoVal} numberOfLines={2}>{adresseLivraison}</Text>
             </View>
           </View>
 
@@ -115,8 +201,13 @@ export default function RechercheCoursierScreen() {
               <Ionicons name="bag-outline" size={18} color={Colors.textSecondary} />
             </View>
             <View style={styles.infoTexts}>
-              <Text style={styles.infoLabel}>Articles</Text>
-              <Text style={styles.infoVal}>Fufu x2, Sauce graine • 3 articles</Text>
+              <Text style={styles.infoLabel}>
+                {typeCourse === 'achat' ? 'Articles' : 'Colis'}
+              </Text>
+              <Text style={styles.infoVal} numberOfLines={2}>
+                {resumeArticles}
+                {typeCourse === 'achat' && ` • ${nbArticles} article${nbArticles > 1 ? 's' : ''}`}
+              </Text>
             </View>
           </View>
 
@@ -127,226 +218,54 @@ export default function RechercheCoursierScreen() {
               <Ionicons name="wallet-outline" size={18} color={Colors.primary} />
             </View>
             <View style={styles.infoTexts}>
-              <Text style={styles.infoLabel}>Total payé</Text>
-              <Text style={styles.infoValPrimary}>17 500 FCFA</Text>
+              <Text style={styles.infoLabel}>Total à payer</Text>
+              <Text style={styles.infoValPrimary}>{total.toLocaleString()} FCFA</Text>
             </View>
           </View>
 
         </View>
 
         {/* Bouton annuler */}
-        <TouchableOpacity
-          style={styles.annulerBtn}
-          onPress={handleAnnuler}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.annulerBtn} onPress={handleAnnuler} activeOpacity={0.8}>
           <Ionicons name="close-circle-outline" size={18} color={Colors.textSecondary} />
           <Text style={styles.annulerText}>Annuler la demande</Text>
         </TouchableOpacity>
 
-        {/* Note annulation */}
         <Text style={styles.noteAnnulation}>
           L'annulation reste possible sans frais tant qu'un coursier n'a pas encore accepté.
         </Text>
 
-      </View>
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.white },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 52,
-    paddingBottom: Spacing.md,
-    paddingHorizontal: Spacing.base,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.borderLight,
-  },
-  backBtn: { padding: 4 },
-  headerTitle: {
-    fontFamily: FontFamily.semiBold,
-    fontSize: FontSize.base,
-    color: Colors.textPrimary,
-  },
-
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    paddingHorizontal: Spacing['2xl'],
-    paddingTop: Spacing.xl,
-  },
-
-  // Badge devis
-  devisBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.successLight,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    marginBottom: Spacing.xl,
-  },
-  devisText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.sm,
-    color: Colors.success,
-  },
-
-  // Animation
-  animWrapper: {
-    width: 160,
-    height: 160,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: Spacing.xl,
-  },
-  pulseRing3: {
-    position: 'absolute',
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    backgroundColor: 'rgba(255, 140, 0, 0.08)',
-  },
-  pulseRing2: {
-    position: 'absolute',
-    width: 130,
-    height: 130,
-    borderRadius: 65,
-    backgroundColor: 'rgba(255, 140, 0, 0.13)',
-  },
-  pulseRing1: {
-    position: 'absolute',
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 140, 0, 0.18)',
-  },
-  iconCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: Colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Shadows.md,
-  },
-
-  // Titre
-  title: {
-    fontFamily: FontFamily.bold,
-    fontSize: FontSize['2xl'],
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    lineHeight: 32,
-    marginBottom: Spacing.md,
-  },
-
-  // Badge connexion
-  connexionBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: Colors.primarySoft,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: BorderRadius.full,
-    marginBottom: Spacing.xl,
-  },
-  connexionDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.primary,
-  },
-  connexionText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.sm,
-    color: Colors.primary,
-  },
-
-  // Carte infos
-  infoCard: {
-    width: '100%',
-    backgroundColor: Colors.surfaceGray,
-    borderRadius: BorderRadius.xl,
-    padding: Spacing.base,
-    marginBottom: Spacing.xl,
-    ...Shadows.sm,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  infoIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Shadows.sm,
-  },
-  infoTexts: { flex: 1 },
-  infoLabel: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.xs,
-    color: Colors.textLight,
-  },
-  infoVal: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.base,
-    color: Colors.textPrimary,
-    marginTop: 2,
-  },
-  infoValPrimary: {
-    fontFamily: FontFamily.bold,
-    fontSize: FontSize.base,
-    color: Colors.primary,
-    marginTop: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 2,
-  },
-
-  // Bouton annuler
-  annulerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    width: '100%',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: BorderRadius.xl,
-    backgroundColor: Colors.surfaceGray,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginBottom: Spacing.md,
-  },
-  annulerText: {
-    fontFamily: FontFamily.medium,
-    fontSize: FontSize.base,
-    color: Colors.textSecondary,
-  },
-
-  // Note
-  noteAnnulation: {
-    fontFamily: FontFamily.regular,
-    fontSize: FontSize.xs,
-    color: Colors.textLight,
-    textAlign: 'center',
-    lineHeight: 18,
-    paddingHorizontal: Spacing.md,
-  },
+  container:      { flex: 1, backgroundColor: Colors.white },
+  header:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 52, paddingBottom: Spacing.md, paddingHorizontal: Spacing.base, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  backBtn:        { padding: 4 },
+  headerTitle:    { fontFamily: FontFamily.semiBold, fontSize: FontSize.base, color: Colors.textPrimary },
+  content:        { alignItems: 'center', paddingHorizontal: Spacing['2xl'], paddingTop: Spacing.xl, paddingBottom: 40 },
+  devisBadge:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: Colors.successLight, paddingHorizontal: 14, paddingVertical: 6, borderRadius: BorderRadius.full, marginBottom: Spacing.xl },
+  devisText:      { fontFamily: FontFamily.medium, fontSize: FontSize.sm, color: Colors.success },
+  animWrapper:    { width: 160, height: 160, alignItems: 'center', justifyContent: 'center', marginBottom: Spacing.xl },
+  pulseRing3:     { position: 'absolute', width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(255,140,0,0.08)' },
+  pulseRing2:     { position: 'absolute', width: 130, height: 130, borderRadius: 65, backgroundColor: 'rgba(255,140,0,0.13)' },
+  pulseRing1:     { position: 'absolute', width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,140,0,0.18)' },
+  iconCircle:     { width: 76, height: 76, borderRadius: 38, backgroundColor: Colors.primary, alignItems: 'center', justifyContent: 'center', ...Shadows.md },
+  title:          { fontFamily: FontFamily.bold, fontSize: FontSize['2xl'], color: Colors.textPrimary, textAlign: 'center', lineHeight: 32, marginBottom: Spacing.md },
+  connexionBadge: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: Colors.primarySoft, paddingHorizontal: 14, paddingVertical: 7, borderRadius: BorderRadius.full, marginBottom: Spacing.xl },
+  connexionDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary },
+  connexionText:  { fontFamily: FontFamily.medium, fontSize: FontSize.sm, color: Colors.primary },
+  infoCard:       { width: '100%', backgroundColor: Colors.surfaceGray, borderRadius: BorderRadius.xl, padding: Spacing.base, marginBottom: Spacing.xl, ...Shadows.sm },
+  infoRow:        { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, paddingVertical: Spacing.sm },
+  infoIconWrapper:{ width: 36, height: 36, borderRadius: 10, backgroundColor: Colors.white, alignItems: 'center', justifyContent: 'center', ...Shadows.sm },
+  infoTexts:      { flex: 1 },
+  infoLabel:      { fontFamily: FontFamily.regular, fontSize: FontSize.xs, color: Colors.textLight },
+  infoVal:        { fontFamily: FontFamily.medium, fontSize: FontSize.base, color: Colors.textPrimary, marginTop: 2 },
+  infoValPrimary: { fontFamily: FontFamily.bold, fontSize: FontSize.base, color: Colors.primary, marginTop: 2 },
+  divider:        { height: 1, backgroundColor: Colors.border, marginVertical: 2 },
+  annulerBtn:     { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%', justifyContent: 'center', paddingVertical: 14, borderRadius: BorderRadius.xl, backgroundColor: Colors.surfaceGray, borderWidth: 1, borderColor: Colors.border, marginBottom: Spacing.md },
+  annulerText:    { fontFamily: FontFamily.medium, fontSize: FontSize.base, color: Colors.textSecondary },
+  noteAnnulation: { fontFamily: FontFamily.regular, fontSize: FontSize.xs, color: Colors.textLight, textAlign: 'center', lineHeight: 18, paddingHorizontal: Spacing.md },
 });

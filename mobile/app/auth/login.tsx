@@ -49,19 +49,24 @@ export default function LoginScreen() {
     }
 
     if (profil.mode === 'coursier') {
-      const { data: livreur } = await supabase
-        .from('livreurs')
+      // Vérifier le statut du dossier dans la table coursier
+      const { data: dossier } = await supabase
+        .from('coursier')
         .select('statut_validation')
-        .eq('id_utilisateur', userId)
-        .single();
+        .eq('id', userId)
+        .maybeSingle();
 
-      if (!livreur) {
+      if (!dossier) {
+        // Pas encore de dossier → formulaire KYC
         router.replace('/auth/kyc-coursier');
-      } else if (livreur.statut_validation === 'en_attente') {
+      } else if (dossier.statut_validation === 'en_attente') {
+        // Dossier soumis mais pas encore validé → page d'attente
         router.replace('/auth/kyc-success');
-      } else if (livreur.statut_validation === 'approuve') {
+      } else if (dossier.statut_validation === 'approuve') {
+        // Dossier approuvé → dashboard coursier
         router.replace('/coursier/dashboard');
       } else {
+        // Rejeté → retour client
         router.replace('/client/home');
       }
     }

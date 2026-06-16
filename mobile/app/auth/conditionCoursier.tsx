@@ -41,7 +41,7 @@ const SECTIONS = [
       'KourseGo prélève une commission fixe de 15% sur le montant de chaque course effectuée.',
       'Si votre compte KourseGo est approvisionné, la commission est prélevée instantanément.',
       'Si votre solde est insuffisant, votre compte passe en négatif et vous devez faire un dépôt pour continuer à recevoir des courses.',
-      'Vous pouvez retirer vos gains accumulés sur la plateforme dès que votre solde atteint un minimum de 1 000 FCFA.',
+      'Vous pouvez retirer vos gains accumulés sur la plateforme ',
     ],
   },
   {

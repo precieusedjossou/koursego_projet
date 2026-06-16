@@ -3,12 +3,13 @@ import React, { useState } from 'react';
 import { Search, UserCheck, UserX, Eye, MoreVertical } from 'lucide-react';
 import type { Utilisateur, StatutCompte } from '../types';
 
-const MOCK_USERS: Utilisateur[] = [
-  { id_utilisateur: 'u1', nom: 'Dupont', prenom: 'Jean', email: 'jean.dupont@gmail.com', telephone: '+229 97 63 24 78', otp_verifie: true, date_inscription: '2025-01-12', statut_compte: 'actif', role_actif: 'client', est_aussi_coursier: true },
-  { id_utilisateur: 'u2', nom: 'Koffi', prenom: 'Sylvie', email: 'sylvie.koffi@yahoo.fr', telephone: '+229 96 44 12 00', otp_verifie: true, date_inscription: '2025-02-03', statut_compte: 'actif', role_actif: 'client', est_aussi_coursier: false },
-  { id_utilisateur: 'u3', nom: 'Mensah', prenom: 'Kodjo', email: 'kodjo.mensah@gmail.com', telephone: '+229 97 11 55 88', otp_verifie: false, date_inscription: '2025-03-18', statut_compte: 'en_attente', role_actif: 'client', est_aussi_coursier: false },
-  { id_utilisateur: 'u4', nom: 'Elabidi', prenom: 'Moussa', email: 'moussa.e@koursego.bj', telephone: '+229 97 00 00 01', otp_verifie: true, date_inscription: '2024-12-01', statut_compte: 'actif', role_actif: 'coursier', est_aussi_coursier: true },
-  { id_utilisateur: 'u5', nom: 'Agossou', prenom: 'Marie', email: 'marie.a@gmail.com', telephone: '+229 96 22 33 44', otp_verifie: true, date_inscription: '2025-04-01', statut_compte: 'suspendu', role_actif: 'client', est_aussi_coursier: false },
+// Simulation avec de vrais formats NPI à 10 chiffres pour le Bénin
+const MOCK_USERS: (Utilisateur & { npi?: string })[] = [
+  { id_utilisateur: 'u1', nom: 'Dupont', prenom: 'Jean', email: 'jean.dupont@gmail.com', telephone: '+229 97 63 24 78', otp_verifie: true, date_inscription: '2025-01-12', statut_compte: 'actif', role_actif: 'client', est_aussi_coursier: true, npi: '1029384756' },
+  { id_utilisateur: 'u2', nom: 'Koffi', prenom: 'Sylvie', email: 'sylvie.koffi@yahoo.fr', telephone: '+229 96 44 12 00', otp_verifie: true, date_inscription: '2025-02-03', statut_compte: 'actif', role_actif: 'client', est_aussi_coursier: false, npi: '2039485761' },
+  { id_utilisateur: 'u3', nom: 'Mensah', prenom: 'Kodjo', email: 'kodjo.mensah@gmail.com', telephone: '+229 97 11 55 88', otp_verifie: false, date_inscription: '2025-03-18', statut_compte: 'en_attente', role_actif: 'client', est_aussi_coursier: false, npi: '104857' }, // Volontairement court pour simuler une erreur
+  { id_utilisateur: 'u4', nom: 'Elabidi', prenom: 'Moussa', email: 'moussa.e@koursego.bj', telephone: '+229 97 00 00 01', otp_verifie: true, date_inscription: '2024-12-01', statut_compte: 'actif', role_actif: 'coursier', est_aussi_coursier: true, npi: '1059483726' },
+  { id_utilisateur: 'u5', nom: 'Agossou', prenom: 'Marie', email: 'marie.a@gmail.com', telephone: '+229 96 22 33 44', otp_verifie: true, date_inscription: '2025-04-01', statut_compte: 'suspendu', role_actif: 'client', est_aussi_coursier: false, npi: '2068574930' },
 ];
 
 const STATUT_CONFIG: Record<StatutCompte, { label: string; color: string; bg: string }> = {
@@ -20,7 +21,7 @@ const STATUT_CONFIG: Record<StatutCompte, { label: string; color: string; bg: st
 export default function UtilisateursPage() {
   const [search, setSearch] = useState('');
   const [filtreStatut, setFiltreStatut] = useState<StatutCompte | 'tous'>('tous');
-  const [users, setUsers] = useState<Utilisateur[]>(MOCK_USERS);
+  const [users, setUsers] = useState<(Utilisateur & { npi?: string })[]>(MOCK_USERS);
 
   const filtered = users.filter((u) => {
     const q = search.toLowerCase();
@@ -28,7 +29,8 @@ export default function UtilisateursPage() {
       u.nom.toLowerCase().includes(q) ||
       u.prenom.toLowerCase().includes(q) ||
       u.email.toLowerCase().includes(q) ||
-      u.telephone.includes(q);
+      u.telephone.includes(q) ||
+      (u.npi && u.npi.includes(q));
     const matchStatut = filtreStatut === 'tous' || u.statut_compte === filtreStatut;
     return matchSearch && matchStatut;
   });
@@ -73,7 +75,7 @@ export default function UtilisateursPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Rechercher par nom, email, téléphone..."
+            placeholder="Rechercher par nom, email, téléphone, NPI..."
             style={{ ...inputStyle, paddingLeft: 38 }}
           />
         </div>
@@ -94,14 +96,17 @@ export default function UtilisateursPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ borderBottom: '2px solid #F0F0F0' }}>
-              {['Utilisateur', 'Contact', 'Rôle', 'Statut', 'OTP', 'Inscription', 'Actions'].map((h) => (
-                <th key={h} style={thStyle}>{h}</th>
+              {['Utilisateur', 'NPI (Bénin)', 'Contact', 'Rôle', 'Statut', 'OTP', 'Inscription', 'Actions'].map((h) => (
+                <th key={h} style={h === 'NPI (Bénin)' ? { ...thStyle, minWidth: '110px' } : thStyle}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.map((u) => {
               const cfg = STATUT_CONFIG[u.statut_compte];
+              // Vérification de la longueur exacte du NPI béninois
+              const isNpiValide = u.npi ? u.npi.length === 10 : true;
+
               return (
                 <tr key={u.id_utilisateur} style={{ borderBottom: '1px solid #F8F8F8' }}>
                   <td style={tdStyle}>
@@ -114,6 +119,17 @@ export default function UtilisateursPage() {
                         )}
                       </div>
                     </div>
+                  </td>
+                  {/* Colonne NPI Simulé */}
+                  <td style={tdStyle}>
+                    <div style={{ fontFamily: 'monospace', fontSize: 13, color: isNpiValide ? '#1F2937' : '#DC2626', fontWeight: 600 }}>
+                      {u.npi || '—'}
+                    </div>
+                    {!isNpiValide && (
+                      <div style={{ fontSize: 10, color: '#DC2626', fontWeight: 500, marginTop: 2 }}>
+                        ⚠️ Doit faire 10 chf.
+                      </div>
+                    )}
                   </td>
                   <td style={tdStyle}>
                     <div style={{ fontSize: 13 }}>{u.email}</div>

@@ -75,7 +75,7 @@ export default function RecapitulatifScreen() {
 
       // Naviguer vers recherche coursier avec l'id de la commande
       router.push({
-        pathname: '/client/commande/confirmation',
+        pathname: '/client/commande/recherche_coursier',
         params: {
           commandeId:       data.id_commande,
           adresseLivraison,

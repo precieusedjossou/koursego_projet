@@ -25,7 +25,11 @@ export default function ChatScreen() {
 
   const coursierNom = (params.coursierNom as string) || 'Coursier';
   const coursierTel = (params.coursierTel as string) || '';
-  const commandeId  = (params.commandeId as string)  || '';
+  const commandeId  = (params.id_commande as string) || (params.commandeId as string) || '';
+  // Indique qui a ouvert le chat ('coursier' ou 'client'), passé explicitement
+  // par la page d'origine, pour savoir où revenir sans rien déclencher d'autre.
+  const from = (params.from as string) || 'client';
+  const origin = (params.origin as string) || 'suivi'; // 'confirmation' ou 'suivi' côté client
 
   const [messages, setMessages]             = useState<Msg[]>([]);
   const [text, setText]                     = useState('');
@@ -48,7 +52,7 @@ export default function ChatScreen() {
     let { data: conv } = await supabase
       .from('conversation')
       .select('id_conversation')
-      .eq('id_cours', parseInt(commandeId))
+      .eq('id_course', parseInt(commandeId))
       .maybeSingle();
 
     // Créer si inexistante
@@ -59,16 +63,20 @@ export default function ChatScreen() {
         .eq('id_commande', parseInt(commandeId))
         .single();
 
-      const { data: newConv } = await supabase
+      const { data: newConv, error: convError } = await supabase
         .from('conversation')
         .insert({
-          id_cours:            parseInt(commandeId),
+          id_course:           parseInt(commandeId),
           id_client:           commande?.id_client   || user.id,
-          id_coursier:         commande?.id_coursier || '',
+          id_coursier:         commande?.id_coursier || user.id,
           statut_conversation: 'active',
         })
         .select('id_conversation')
         .single();
+
+      if (convError) {
+        console.error('[Chat] Erreur création conversation:', convError);
+      }
       conv = newConv;
     }
 
@@ -113,16 +121,20 @@ export default function ChatScreen() {
   };
 
   const sendMessage = async () => {
-    if (!text.trim() || !conversationId || !userId) return;
+    if (!text.trim() || !conversationId || !userId) {
+      console.log('[Chat] Envoi annulé — text:', text.trim(), 'conversationId:', conversationId, 'userId:', userId);
+      return;
+    }
     const contenu = text.trim();
     setText('');
-    await supabase.from('messages').insert({
+    const { error } = await supabase.from('messages').insert({
       id_conversation: conversationId,
       id_expediteur:   userId,
       contenu,
       type_message:    'texte',
       lu:              false,
     });
+    if (error) console.error('[Chat] Erreur envoi message:', error);
     setTimeout(() => listRef.current?.scrollToEnd({ animated: true }), 100);
   };
 
@@ -162,7 +174,30 @@ export default function ChatScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => {
+            // Retourne exactement à la page qui a ouvert le chat, sans
+            // déclencher quoi que ce soit d'autre (pas de simulation, pas
+            // de redémarrage de course).
+            if (from === 'coursier') {
+              router.replace(
+                commandeId
+                  ? `/coursier/course/en-cours?id_commande=${commandeId}`
+                  : '/coursier/dashboard'
+              );
+            } else if (origin === 'confirmation') {
+              router.replace(
+                commandeId
+                  ? `/client/commande/confirmation?commandeId=${commandeId}`
+                  : '/client/home'
+              );
+            } else {
+              router.replace(
+                commandeId
+                  ? `/client/course/suivi?id_commande=${commandeId}`
+                  : '/client/home'
+              );
+            }
+          }}
           style={styles.backBtn}
         >
           <Ionicons name="arrow-back" size={22} color={Colors.textPrimary} />

@@ -1,7 +1,7 @@
 // app/client/commande/confirmation.tsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, Image,
+  View, Text, StyleSheet, TouchableOpacity, Linking, ScrollView, Image, ActivityIndicator,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { Colors, Shadows } from '../../../constants/Colors';
 import { FontFamily, FontSize, Spacing, BorderRadius } from '../../../constants/Typography';
 import Header from '../../../components/shared/Header';
 import Button from '../../../components/ui/Button';
+import { supabase } from '../../../lib/supabase';
 
 interface Article {
   id: string; nom: string; quantite: string; magasin: string; prix: string;
@@ -18,13 +19,16 @@ export default function ConfirmationCoursierScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  // Infos coursier depuis recherche_coursier.tsx
-  const coursierNom     = (params.coursierNom as string)     || 'Coursier';
-  const coursierTel     = (params.coursierTel as string)     || '';
-  const coursierPhoto   = (params.coursierPhoto as string)   || '';
-  const coursierNote    = (params.coursierNote as string)    || '5.0';
-  const coursierCourses = (params.coursierCourses as string) || '0';
-  const commandeId      = (params.commandeId as string)      || '';
+  const commandeId = (params.commandeId as string) || '';
+
+  // Infos coursier — d'abord depuis les params (passés par recherche-coursier),
+  // sinon refetch depuis Supabase si elles manquent (lien direct, refresh, etc.)
+  const [coursierNom, setCoursierNom]         = useState((params.coursierNom as string) || '');
+  const [coursierTel, setCoursierTel]         = useState((params.coursierTel as string) || '');
+  const [coursierPhoto, setCoursierPhoto]     = useState((params.coursierPhoto as string) || '');
+  const [coursierNote, setCoursierNote]       = useState((params.coursierNote as string) || '5.0');
+  const [coursierCourses, setCoursierCourses] = useState((params.coursierCourses as string) || '0');
+  const [loadingCoursier, setLoadingCoursier] = useState(false);
 
   // Infos commande
   const typeCourse      = (params.typeCourse as string)       || 'achat';
@@ -33,6 +37,61 @@ export default function ConfirmationCoursierScreen() {
   const montantArticles = parseFloat((params.montantArticles as string) || '0');
   const commission      = parseFloat((params.commission as string)      || '0');
   const articles: Article[] = params.articles ? JSON.parse(params.articles as string) : [];
+
+  // ── Filet de sécurité : si les infos coursier n'arrivent pas via params,
+  // on les récupère nous-mêmes depuis Supabase à partir de commandeId ──
+  useEffect(() => {
+    if (coursierNom && coursierTel) return; // déjà reçues via params, rien à faire
+    if (!commandeId) return;
+
+    const fetchCoursierInfo = async () => {
+      setLoadingCoursier(true);
+      try {
+        const { data: cmd } = await supabase
+          .from('commande')
+          .select('id_coursier')
+          .eq('id_commande', commandeId)
+          .single();
+
+        if (!cmd?.id_coursier) return;
+
+        const { data: usr } = await supabase
+          .from('utilisateurs')
+          .select('nom_complet, telephone, photo_profil_url')
+          .eq('id', cmd.id_coursier)
+          .single();
+
+        const { data: crs } = await supabase
+          .from('coursier')
+          .select('nombre_courses')
+          .eq('id', cmd.id_coursier)
+          .single();
+
+        const { data: avisData } = await supabase
+          .from('avis')
+          .select('note')
+          .eq('id_coursier', cmd.id_coursier);
+
+        const noteMoyenne = avisData && avisData.length > 0
+          ? (avisData.reduce((s: number, a: any) => s + a.note, 0) / avisData.length).toFixed(1)
+          : '5.0';
+
+        if (usr) {
+          setCoursierNom(usr.nom_complet || 'Coursier');
+          setCoursierTel(usr.telephone || '');
+          setCoursierPhoto(usr.photo_profil_url || '');
+        }
+        setCoursierNote(noteMoyenne);
+        setCoursierCourses(crs?.nombre_courses?.toString() || '0');
+      } catch (err) {
+        console.error('[Confirmation] Erreur fetch coursier:', err);
+      } finally {
+        setLoadingCoursier(false);
+      }
+    };
+
+    fetchCoursierInfo();
+  }, [commandeId]);
 
   const handleAppel = () => {
     if (coursierTel) Linking.openURL(`tel:${coursierTel}`);
@@ -48,9 +107,20 @@ export default function ConfirmationCoursierScreen() {
   const handleMessage = () => {
     router.push({
       pathname: '/client/course/chat',
-      params: { commandeId, coursierNom, coursierTel },
+      params: { id_commande: commandeId, coursierNom, coursierTel, from: 'client', origin: 'confirmation' },
     });
   };
+
+  if (loadingCoursier && !coursierNom) {
+    return (
+      <View style={styles.container}>
+        <Header showBack title="Coursier trouvé !" />
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <ActivityIndicator size="large" color={Colors.primary} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -74,7 +144,7 @@ export default function ConfirmationCoursierScreen() {
             )}
           </View>
           <View style={styles.coursierInfo}>
-            <Text style={styles.coursierNom}>{coursierNom}</Text>
+            <Text style={styles.coursierNom}>{coursierNom || 'Coursier'}</Text>
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={14} color={Colors.primary} />
               <Text style={styles.ratingText}>

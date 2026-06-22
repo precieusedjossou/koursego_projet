@@ -59,31 +59,51 @@ export default function GainsScreen() {
     if (periode === 'semaine') dateFrom.setDate(now.getDate() - 7);
     if (periode === 'mois')    dateFrom.setDate(now.getDate() - 30);
 
-    // Courses livrées dans la période — avec paiement pour distinguer espèces/en ligne
-    const { data: cmds } = await supabase
+    // Courses livrées dans la période
+    const { data: cmds, error: cmdsErr } = await supabase
       .from('commande')
-      .select(`
-        id_commande, description_articles, adresse_livraison,
-        montant_course, estimation_prix, statut_commande, date_commande,
-        client:id_client ( utilisateur:id ( nom_complet ) ),
-        paiement:id_commande (
-          moyen_paiement, statut_paiement, montant_commission
-        )
-      `)
+      .select('id_commande, description_articles, adresse_livraison, montant_course, estimation_prix, statut_commande, date_commande')
       .eq('id_coursier', user.id)
       .eq('statut_commande', 'livree')
       .gte('date_commande', dateFrom.toISOString())
       .order('date_commande', { ascending: false });
 
+    if (cmdsErr) console.error('[Gains] Erreur fetch commandes:', cmdsErr);
+
     if (cmds) {
-      setCourses(cmds);
+      // Récupérer les paiements correspondants séparément (plus fiable que
+      // la jointure imbriquée, qui peut échouer si la relation FK n'est pas
+      // explicitement nommée côté Supabase)
+      const idsCommandes = cmds.map((c: any) => c.id_commande);
+      let paiementsMap: Record<number, any> = {};
+
+      if (idsCommandes.length > 0) {
+        const { data: paiements } = await supabase
+          .from('paiement')
+          .select('id_course, moyen_paiement, statut_paiement, montant_commission')
+          .in('id_course', idsCommandes);
+
+        if (paiements) {
+          paiementsMap = paiements.reduce((acc: any, p: any) => {
+            acc[p.id_course] = p;
+            return acc;
+          }, {});
+        }
+      }
+
+      const cmdsAvecPaiement = cmds.map((c: any) => ({
+        ...c,
+        paiement: paiementsMap[c.id_commande] || null,
+      }));
+
+      setCourses(cmdsAvecPaiement);
       // Pour les gains : on compte seulement les paiements en ligne (solde)
       // Les espèces sont visibles dans l'historique mais n'accumulent pas le solde
-      const totalLigne = cmds
+      const totalLigne = cmdsAvecPaiement
         .filter((c: any) => c.paiement?.moyen_paiement !== 'especes')
         .reduce((s: number, c: any) => s + (c.montant_course || 0), 0);
-      const totalAll  = cmds.reduce((s: number, c: any) => s + (c.montant_course || 0), 0);
-      const nb        = cmds.length;
+      const totalAll  = cmdsAvecPaiement.reduce((s: number, c: any) => s + (c.montant_course || 0), 0);
+      const nb        = cmdsAvecPaiement.length;
       setStats({ total: totalAll, nbCourses: nb, moy: nb > 0 ? Math.round(totalAll / nb) : 0 });
       setCommissionDue(Math.round(totalLigne * COMMISSION_TAUX));
     }

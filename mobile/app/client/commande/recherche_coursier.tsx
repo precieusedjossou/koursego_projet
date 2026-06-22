@@ -47,8 +47,10 @@ export default function RechercheCoursierScreen() {
     if (!commandeId) return;
 
     // ── Supabase Realtime : écoute la mise à jour de la commande ──
-    // Dès qu'un coursier accepte → statut_course passe à 'acceptee'
+    // Dès qu'un coursier accepte (via la fonction RPC accepter_commande) →
+    // statut_commande passe à 'en_cours' et id_coursier est rempli
     // → on récupère ses infos et on navigue vers confirmation
+    console.log('[Realtime] Abonnement au channel pour commandeId =', commandeId);
     const channel = supabase
       .channel(`commande-${commandeId}`)
       .on(
@@ -60,40 +62,43 @@ export default function RechercheCoursierScreen() {
           filter: `id_commande=eq.${commandeId}`,
         },
         async (payload) => {
+          console.log('[Realtime] Événement UPDATE reçu:', JSON.stringify(payload.new));
           const updated = payload.new as any;
 
-          if (updated.statut_commande === 'acceptee' && updated.id_coursier) {
-            // Récupérer les infos du coursier avec typage explicite
+          if (updated.statut_commande === 'en_cours' && updated.id_coursier) {
+            console.log('[Realtime] Condition matchée, récupération coursier...');
+            // Récupérer les infos du coursier (table coursier + utilisateurs séparément,
+            // plus fiable que la jointure imbriquée si la relation FK n'est pas nommée)
             const { data: coursierRaw } = await supabase
               .from('coursier')
-              .select(`
-                id,
-                nombre_courses,
-                utilisateur:id ( nom_complet, telephone, photo_profil_url )
-              `)
+              .select('id, nombre_courses')
               .eq('id', updated.id_coursier)
               .single();
 
-            // Support des deux noms possibles de la table
-            const utilisateur = (coursierRaw?.utilisateur as unknown) as {
-              nom_complet: string;
-              telephone: string;
-              photo_profil_url: string;
-            } | null;
+            console.log('[Realtime] id_coursier reçu:', JSON.stringify(updated.id_coursier), 'typeof:', typeof updated.id_coursier);
 
-            // Debug — à supprimer après confirmation
-            console.log('[Coursier trouvé]', JSON.stringify(coursierRaw));
-            console.log('[Utilisateur]', JSON.stringify(utilisateur));
+            // Appel RPC (SECURITY DEFINER) — contourne les blocages RLS
+            // imprévisibles rencontrés sur les lectures directes de utilisateurs
+            const { data: infoCoursier, error: rpcError } = await supabase
+              .rpc('get_coursier_info', { p_id_coursier: updated.id_coursier })
+              .single();
 
-            // Récupérer la note moyenne du coursier
-            const { data: avisData } = await supabase
-              .from('avis')
-              .select('note')
-              .eq('id_coursier', updated.id_coursier);
+            if (rpcError) console.error('[Realtime] Erreur RPC get_coursier_info:', JSON.stringify(rpcError));
+            console.log('[Realtime] Info coursier RPC:', JSON.stringify(infoCoursier));
 
-            const noteMoyenne = avisData && avisData.length > 0
-              ? (avisData.reduce((s: number, a: any) => s + a.note, 0) / avisData.length).toFixed(1)
+            const utilisateur = infoCoursier ? {
+              nom_complet: (infoCoursier as any).nom_complet,
+              telephone: (infoCoursier as any).telephone,
+              photo_profil_url: (infoCoursier as any).photo_profil_url,
+            } : null;
+
+            const noteMoyenne = infoCoursier
+              ? Number((infoCoursier as any).note_moyenne).toFixed(1)
               : '5.0';
+
+            const nombreCoursesVal = infoCoursier
+              ? (infoCoursier as any).nombre_courses?.toString() || '0'
+              : (coursierRaw?.nombre_courses?.toString() || '0');
 
             // Naviguer vers confirmation avec toutes les infos
             router.replace({
@@ -104,7 +109,7 @@ export default function RechercheCoursierScreen() {
                 coursierTel:      utilisateur?.telephone       || '',
                 coursierPhoto:    utilisateur?.photo_profil_url || '',
                 coursierNote:     noteMoyenne,
-                coursierCourses:  coursierRaw?.nombre_courses?.toString() || '0',
+                coursierCourses:  nombreCoursesVal,
                 // Infos commande
                 adresseLivraison,
                 typeCourse,
@@ -118,7 +123,9 @@ export default function RechercheCoursierScreen() {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Realtime] Statut abonnement:', status);
+      });
 
     return () => { supabase.removeChannel(channel); };
   }, [commandeId]);

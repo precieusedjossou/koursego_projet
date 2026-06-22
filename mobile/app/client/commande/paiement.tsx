@@ -26,7 +26,9 @@ export default function PaiementScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-  const commandeId        = (params.commandeId as string) || '';
+  const commandeId = (params.commandeId as string) || '';
+  console.log('[DEBUG] TOUS LES PARAMS:', JSON.stringify(params));
+  console.log('[DEBUG] commandeId =', commandeId);
   const totalParam        = parseFloat((params.total as string) || '0');
   const montantArt        = parseFloat((params.montantArticles as string) || '0');
   const commissionParam   = parseFloat((params.commission as string) || '0');
@@ -121,7 +123,7 @@ export default function PaiementScreen() {
 
       router.replace({
         pathname: '/client/course/suivi',
-        params: { commandeId },
+        params: { id_commande: commandeId },
       });
     } catch (e) {
       Alert.alert('Erreur', 'Paiement reçu mais erreur de mise à jour.');
@@ -137,30 +139,70 @@ export default function PaiementScreen() {
 
   const handlePay = async () => {
     if (moyen === 'especes') {
-      // Espèces → enregistrer et aller directement au suivi
       setLoading(true);
       try {
-        await supabase.from('paiement').insert({
+        const { data, error } = await supabase
+          .from('commande')
+          .update({ statut_commande: 'en_cours' })
+          .eq('id_commande', parseInt(commandeId))
+          .select('id_commande'); // force le retour des lignes réellement modifiées
+
+        if (error) {
+          console.error('[Paiement] Erreur update:', error);
+          Alert.alert('Erreur', `Impossible de confirmer : ${error.message}`);
+          setLoading(false);
+          return;
+        }
+
+        if (!data || data.length === 0) {
+          // 0 ligne modifiée = RLS a bloqué silencieusement (pas d'erreur levée)
+          console.error('[Paiement] Update bloqué par RLS — 0 ligne modifiée. commandeId:', commandeId);
+          Alert.alert(
+            'Erreur de permission',
+            "La commande n'a pas pu être mise à jour. Vérifiez la politique RLS UPDATE sur 'commande'."
+          );
+          setLoading(false);
+          return;
+        }
+
+        // Enregistrer le paiement espèces (en_attente car pas encore remis physiquement)
+        const { error: errPaiement } = await supabase.from('paiement').insert({
           id_course:          parseInt(commandeId),
           montant_articles:   montantArt,
           montant_commission: montantCoursier,
           montant_plateforme: montantPlateforme,
           montant_total:      totalParam,
           moyen_paiement:     'especes',
+          numero_mobile:      null,
+          preuve_paiement:    null,
           statut_paiement:    'en_attente',
           date_paiement:      new Date().toISOString(),
         });
 
-        await supabase
-          .from('commande')
-          .update({ statut_commande: 'en_cours' })
-          .eq('id_commande', commandeId);
+        if (errPaiement) {
+          // Code 23505 = paiement déjà existant pour cette commande (déjà payée
+          // précédemment, ex: test répété) — on l'ignore et on continue, ce
+          // n'est pas une vraie erreur bloquante pour la suite du flux.
+          if (errPaiement.code === '23505') {
+            console.warn('[Paiement] Paiement déjà existant pour cette commande, on continue.');
+          } else {
+            // RLS bloque souvent l'insert SANS lever d'exception côté JS —
+            // ce log révèle le vrai problème (policy manquante sur 'paiement')
+            console.error('[Paiement] Erreur insert paiement (RLS ?):', errPaiement);
+            Alert.alert(
+              'Paiement non enregistré',
+              `La commande est en cours mais le paiement n'a pas pu être enregistré : ${errPaiement.message}`
+            );
+          }
+        }
 
+        setLoading(false);
         router.replace({
           pathname: '/client/course/suivi',
-          params: { commandeId },
+          params: { id_commande: commandeId },
         });
       } catch (e) {
+        console.error('[Paiement] Exception:', e);
         Alert.alert('Erreur', 'Impossible de confirmer le paiement espèces.');
         setLoading(false);
       }

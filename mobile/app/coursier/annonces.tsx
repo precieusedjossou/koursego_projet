@@ -55,8 +55,9 @@ export default function AnnoncesScreen() {
 
   const filtrees = annonces.filter((a) => {
     if (filtre === 'toutes') return true;
-    const isAchat = !!a.magasins;
-    return filtre === 'achat' ? isAchat : !isAchat;
+    // Colis = poids_colis défini OU aller_retour activé
+    const isColis = !!a.poids_colis || !!a.aller_retour;
+    return filtre === 'achat' ? !isColis : isColis;
   });
 
   return (
@@ -106,7 +107,8 @@ export default function AnnoncesScreen() {
           ) : null
         }
         renderItem={({ item }) => {
-          const isAchat = !!item.magasins;
+          // Colis = poids_colis défini OU aller_retour
+          const isAchat = !item.poids_colis && !item.aller_retour;
           const type    = isAchat ? 'achat' : 'recuperation_colis';
 
           return (
